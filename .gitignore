@@ -37,7 +37,6 @@ ipython_config.py
 *.bin
 *.vec
 *.npz
-*.csv
 *.json
 ./nlp-predicting-ideology/models/
 ./nlp-predicting-ideology/models/data/
@@ -73,16 +72,6 @@ venv.bak/
 # Logs and results
 logs/
 *.log
-
-# Figures and visualizations
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.svg
-*.pdf
-plots/
-figures/
 
 # TensorFlow specific
 checkpoint
