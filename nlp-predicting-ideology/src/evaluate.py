@@ -4,18 +4,12 @@ import joblib
 import torch
 import logging
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 from transformers import (
-    BertTokenizer, BertForSequenceClassification,
-    RobertaTokenizer, RobertaForSequenceClassification,
-    PreTrainedTokenizer, PreTrainedModel
+    BertTokenizer, BertForSequenceClassification
 )
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.model_selection import train_test_split
 import embedding_utils
-from tensorflow.keras.models import load_model # type: ignore
-from tensorflow.keras.preprocessing.text import Tokenizer # type: ignore
-from tensorflow.keras.preprocessing.sequence import pad_sequences # type: ignore
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -34,20 +28,21 @@ def evaluate_models() -> pd.DataFrame:
     # Load Data
     try:
         df = embedding_utils.load_data()
-        y = df["nominate_dim1"]
+        
+        # Use the same train/test split function as in training scripts
+        # This ensures we're evaluating on the exact same test data
+        _, X_test_text, _, y_test, _ = embedding_utils.get_train_test_split(df)
+        logger.info(f"Loaded test set with {len(X_test_text)} samples")
+        
     except Exception as e:
         logger.error(f"Error loading data: {e}")
         raise
-
-    # Train-Test Split
-    X_train_text, X_test_text, y_train, y_test = train_test_split(
-        df["clean_text"], y, test_size=0.2, random_state=42
-    )
 
     model_results = []
 
     # Ridge Regression Evaluation
     try:
+        logger.info("Evaluating Ridge Regression model...")
         vectorizer = joblib.load("../models/tfidf_vectorizer.pkl")
         X_test_tfidf = vectorizer.transform(X_test_text)
         ridge_model = joblib.load("../models/ridge_regression.pkl")
@@ -56,38 +51,25 @@ def evaluate_models() -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Error in Ridge evaluation: {e}")
 
-    # XGBoost Evaluation
-    try:
-        X_word2vec, _ = embedding_utils.get_word2vec_embeddings(X_test_text)
-        xgb_model = joblib.load("../models/xgboost.pkl")
-        xgb_preds = xgb_model.predict(X_word2vec)
-        model_results.append(evaluate_predictions("XGBoost", y_test, xgb_preds))
-    except Exception as e:
-        logger.error(f"Error in XGBoost evaluation: {e}")
-
     # BERT Evaluation
     try:
-        bert_preds = evaluate_transformer_model(
+        logger.info("Evaluating BERT model...")
+        # Load normalization parameters used during BERT training
+        bert_norm_params = load_normalization_params("../models/bert_norm_params.npz")
+        
+        # Get raw predictions from the model
+        bert_preds_raw = evaluate_transformer_model(
             model_type="bert",
             model_path="../models/bert_model",
             texts=X_test_text,
             device=device
         )
+        
+        # Denormalize predictions to match original scale
+        bert_preds = bert_preds_raw * bert_norm_params["std"] + bert_norm_params["mean"]
         model_results.append(evaluate_predictions("BERT Fine-Tuning", y_test, bert_preds))
     except Exception as e:
         logger.error(f"Error in BERT evaluation: {e}")
-        
-    # RoBERTa Evaluation
-    try:
-        roberta_preds = evaluate_transformer_model(
-            model_type="roberta",
-            model_path="../models/roberta_model",
-            texts=X_test_text,
-            device=device
-        )
-        model_results.append(evaluate_predictions("RoBERTa Fine-Tuning", y_test, roberta_preds))
-    except Exception as e:
-        logger.error(f"Error in RoBERTa evaluation: {e}")
 
     # Create results DataFrame
     results_df = pd.DataFrame(model_results, columns=["Model", "MSE", "MAE", "R² Score"])
@@ -99,16 +81,36 @@ def evaluate_models() -> pd.DataFrame:
         logger.info(f"Results saved to {results_path}")
     except Exception as e:
         logger.error(f"Error saving results: {e}")
+    
+    # Print results
+    print("\nModel Comparison Results:")
+    print(results_df)
 
     return results_df
 
+def load_normalization_params(path: str) -> Dict[str, float]:
+    """Load normalization parameters from npz file."""
+    try:
+        loaded = np.load(path)
+        return {"mean": loaded["mean"], "std": loaded["std"]}
+    except Exception as e:
+        logger.error(f"Error loading normalization parameters from {path}: {e}")
+        # Return default values as fallback
+        return {"mean": 0.0, "std": 1.0}
+
 def evaluate_predictions(model_name: str, y_true: np.ndarray, y_pred: np.ndarray) -> List:
     """Evaluate model predictions using multiple metrics."""
+    mse = mean_squared_error(y_true, y_pred)
+    mae = mean_absolute_error(y_true, y_pred)
+    r2 = r2_score(y_true, y_pred)
+    
+    logger.info(f"{model_name} - MSE: {mse:.4f}, MAE: {mae:.4f}, R²: {r2:.4f}")
+    
     return [
         model_name,
-        mean_squared_error(y_true, y_pred),
-        mean_absolute_error(y_true, y_pred),
-        r2_score(y_true, y_pred)
+        mse,
+        mae,
+        r2
     ]
 
 def evaluate_transformer_model(
@@ -121,7 +123,7 @@ def evaluate_transformer_model(
     Evaluate a transformer model on given texts.
     
     Args:
-        model_type: Type of model ('bert' or 'roberta')
+        model_type: Type of model ('bert')
         model_path: Path to the model
         texts: Input texts to evaluate
         device: Torch device to use
@@ -133,9 +135,6 @@ def evaluate_transformer_model(
     if model_type.lower() == "bert":
         tokenizer = BertTokenizer.from_pretrained(model_path)
         model = BertForSequenceClassification.from_pretrained(model_path).to(device)
-    elif model_type.lower() == "roberta":
-        tokenizer = RobertaTokenizer.from_pretrained(model_path)
-        model = RobertaForSequenceClassification.from_pretrained(model_path).to(device)
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
     
@@ -173,5 +172,3 @@ def evaluate_transformer_model(
 
 if __name__ == "__main__":
     results = evaluate_models()
-    print("\nModel Comparison Results:")
-    print(results)

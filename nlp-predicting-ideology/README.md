@@ -4,6 +4,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.0+-orange.svg)](https://www.tensorflow.org/)
 [![Scikit-learn](https://img.shields.io/badge/Scikit--learn-latest-green.svg)](https://scikit-learn.org/)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-Transformers-yellow)](https://huggingface.co/)
 
 This project builds an **NLP pipeline** to **scrape U.S. politicians' websites**, process their text, and predict their **ideology score** (DW-NOMINATE) using **Machine Learning & Deep Learning** models.
 
@@ -41,26 +42,19 @@ nlp-predicting-ideology/
 │
 │── models/                    # 📂 Trained models
 │   ├── ridge_regression.pkl   # Ridge Regression model
-│   ├── xgboost.pkl            # XGBoost model
-│   ├── lstm.h5                # LSTM model
 │   ├── bert_model/            # BERT fine-tuned model
+│   ├── metrics/               # Model performance metrics
 │
 │── src/                       # 📂 Core code (training & preprocessing)
-│   ├── embedding_utils.py     # Handles text embeddings (TF-IDF, Word2Vec, BERT)
+│   ├── embedding_utils.py     # Handles text embeddings (TF-IDF, BERT)
 │   ├── preprocess.py          # Preprocesses text (cleans data, removes NaN, filters word count)
 │   ├── train_ridge.py         # Trains Ridge Regression model
-│   ├── train_xgboost.py       # Trains XGBoost model
-│   ├── train_lstm.py          # Trains LSTM model
 │   ├── train_bert.py          # Fine-tunes BERT model
-│   ├── evaluate_models.py     # Compares all trained models
+│   ├── evaluate.py            # Compares all trained models
 │
 │── politician_scraper/        # 📂 Web scraping (Scrapy framework)
 │   ├── spiders/
 │   │   ├── politicians.py     # Scrapy spider script to scrape website text
-│
-│── notebooks/                 # 📓 Jupyter notebooks for exploration and visualization
-│   ├── exploratory_analysis.ipynb  # Data exploration and visualization
-│   ├── model_comparison.ipynb      # Compare performance across models
 │
 │── requirements.txt           # 🔧 Project dependencies
 │── README.md                  # 📚 Project documentation
@@ -94,12 +88,15 @@ pip install -r requirements.txt
 To get started quickly with a pre-trained model:
 
 ```python
-from src.embedding_utils import preprocess_text, get_bert_embeddings
-from joblib import load
-import pandas as pd
+from src.embedding_utils import preprocess_text
+from transformers import BertTokenizer, BertForSequenceClassification
+import torch
+import numpy as np
 
-# Load pre-trained model
-model = load('models/xgboost.pkl')
+# Load pre-trained BERT model and tokenizer
+model_name = "models/bert_model"
+tokenizer = BertTokenizer.from_pretrained(model_name)
+model = BertForSequenceClassification.from_pretrained(model_name)
 
 # Example text from politician's website
 text = "We must ensure healthcare is accessible to all Americans while reducing costs..."
@@ -107,12 +104,15 @@ text = "We must ensure healthcare is accessible to all Americans while reducing 
 # Preprocess text
 processed_text = preprocess_text(text)
 
-# Get embeddings
-embeddings = get_bert_embeddings(processed_text)
+# Get predictions
+inputs = tokenizer(processed_text, return_tensors="pt", padding=True, truncation=True, max_length=512)
+with torch.no_grad():
+    outputs = model(**inputs)
 
-# Predict ideology score (-1 = liberal, 1 = conservative)
-ideology_score = model.predict(embeddings)[0]
-print(f"Predicted ideology score: {ideology_score:.2f}")
+# Load normalization parameters and denormalize prediction
+norm_params = np.load('models/bert_norm_params.npz')
+prediction = outputs.logits.item() * norm_params['std'] + norm_params['mean']
+print(f"Predicted ideology score: {prediction:.2f}")  # Scale: -1 (liberal) to 1 (conservative)
 ```
 
 ---
@@ -138,14 +138,12 @@ python src/preprocess.py
 3. **Train Different Models**
 ```bash
 python src/train_ridge.py
-python src/train_xgboost.py
-python src/train_lstm.py
 python src/train_bert.py
 ```
 
-4. **Evaluate All Models** (`evaluate_models.py`)
+4. **Evaluate All Models** (`evaluate.py`)
 ```bash
-python src/evaluate_models.py
+python src/evaluate.py
 ```
 
 ---
@@ -176,9 +174,7 @@ The dataset combines:
 | **Model** | **Embeddings Used** | **Pros** | **Cons** |
 |-----------|---------------------|----------|----------|
 | **Ridge Regression** | TF-IDF | Fast & interpretable | Doesn't capture context |
-| **XGBoost** | Word2Vec | Captures non-linearity | Slower than Ridge |
-| **LSTM** | Word2Vec | Sequential learning | Requires large dataset |
-| **BERT Fine-Tuning** | BERT | Best accuracy | Requires GPU |
+| **BERT Fine-Tuning** | BERT | Strong contextual understanding | Computationally intensive |
 
 ---
 
@@ -186,12 +182,10 @@ The dataset combines:
 
 ### Performance Metrics (Test Set)
 
-| **Model** | **MAE** | **RMSE** | **R²** | **Training Time** |
-|-----------|---------|----------|--------|------------------|
-| Ridge Regression | 0.215 | 0.267 | 0.61 | 3.2s |
-| XGBoost | 0.182 | 0.229 | 0.72 | 45.1s |
-| LSTM | 0.166 | 0.209 | 0.77 | 15m 32s |
-| BERT | 0.112 | 0.154 | 0.86 | 3h 22m |
+| **Model** | **MSE** | **RMSE** | **MAE** | **R²** |
+|-----------|---------|----------|---------|--------|
+| Ridge Regression | 0.130 | 0.361 | 0.288 | 0.381 |
+| BERT | 0.120 | 0.346 | 0.241 | 0.432 |
 
 <p align="center">
   <img src="https://via.placeholder.com/600x400?text=Model+Comparison+Chart" alt="Model Comparison" width="500"/>
@@ -199,10 +193,10 @@ The dataset combines:
 
 ### Key Findings
 
-- **BERT** achieves the best performance but requires significant computational resources
-- **LSTM** offers a good balance between accuracy and training time
+- **BERT** achieves better performance with an R² score of 0.432, but requires significant computational resources
+- Ridge Regression offers decent performance (R² = 0.381) with much faster training
 - Most common misclassifications occur for moderate politicians
-- Feature importance analysis shows economic terms are strongest predictors
+- The relatively modest R² scores indicate the challenging nature of predicting political ideology from text alone
 
 ---
 
@@ -210,46 +204,15 @@ The dataset combines:
 | **File** | **Description** |
 |----------|---------------|
 | `preprocess.py` | Cleans and filters the dataset before training |
-| `embedding_utils.py` | Converts text into TF-IDF, Word2Vec, or BERT embeddings |
+| `embedding_utils.py` | Converts text into TF-IDF or BERT embeddings |
 | `train_ridge.py` | Trains Ridge Regression with TF-IDF |
-| `train_xgboost.py` | Trains XGBoost with Word2Vec |
-| `train_lstm.py` | Trains an LSTM using Word2Vec |
 | `train_bert.py` | Fine-tunes BERT on our dataset |
-| `evaluate_models.py` | Compares all trained models and prints evaluation metrics |
-
----
-
-## **🔮 Future Work**
-
-Potential improvements and extensions:
-
-1. **Cross-lingual ideology prediction** - Apply to politicians from different countries
-2. **Temporal analysis** - Track ideological shifts over time
-3. **Multi-modal analysis** - Incorporate speech, voting records, and social media
-4. **Active learning** - Reduce annotation costs for new politicians
-5. **Explainable AI techniques** - Better interpret model predictions
-
----
-
-## **🤝 Contributing**
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+| `evaluate.py` | Compares all trained models and prints evaluation metrics |
 
 ---
 
 ## **License**
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
-
-## **Contact**
-
-Project Maintainer: [Your Name](https://github.com/yourusername)
-
-For questions or feedback, please [open an issue](https://github.com/yourusername/nlp-predicting-ideology/issues) or contact [youremail@example.com](mailto:youremail@example.com).
+## **Author**
+**Aryah Rao** - [GitHub]([https](https://github.com/aryah-rao))
