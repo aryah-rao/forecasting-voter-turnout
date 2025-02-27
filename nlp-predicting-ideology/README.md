@@ -11,7 +11,44 @@ This project builds an **NLP pipeline** to **scrape U.S. politicians' websites**
 **Goal:** Predict **political ideology** based on text data and compare different NLP models.
 
 <p align="center">
-  <img src="https://via.placeholder.com/800x400?text=NLP+Pipeline+Visualization" alt="NLP Pipeline Visualization" width="700"/>
+```mermaid
+flowchart TD
+    subgraph Data Collection
+        A1[Scrape Politicians' Websites] -->|Raw HTML| A2[Extract Text Content]
+    end
+    
+    subgraph Data Preprocessing
+        A2 -->|Raw Text| B1[Clean Text]
+        B1 -->|Remove HTML| B2[Tokenization]
+        B2 -->|Tokenized Text| B3[Remove Stopwords]
+        B3 -->|Filtered Tokens| B4[Lemmatization]
+    end
+
+    subgraph Feature Engineering
+        B4 -->|Processed Text| C1[TF-IDF Vectorization]
+        B4 -->|Processed Text| C2[BERT Tokenization]
+    end
+
+    subgraph Model Training
+        C1 -->|TF-IDF Features| D1[Ridge Regression]
+        C2 -->|Token IDs| D2[BERT Fine-Tuning]
+    end
+
+    subgraph Evaluation
+        D1 -->|Predictions| E1[Calculate MSE, MAE, R²]
+        D2 -->|Predictions| E1
+        E1 -->|Performance Metrics| E2[Compare Models]
+    end
+
+    subgraph Prediction
+        E2 -->|Best Model| F1[Predict New Text]
+        F1 -->|Prediction| F2[Political Ideology Score]
+    end
+
+    %% Connect DW-NOMINATE scores to training
+    G1[DW-NOMINATE Scores] -->|Ground Truth| D1
+    G1 -->|Ground Truth| D2
+```
 </p>
 
 ---
@@ -91,7 +128,7 @@ To get started quickly with a pre-trained model:
 from src.embedding_utils import preprocess_text
 from transformers import BertTokenizer, BertForSequenceClassification
 import torch
-import numpy as np
+import numpy np
 
 # Load pre-trained BERT model and tokenizer
 model_name = "models/bert_model"
