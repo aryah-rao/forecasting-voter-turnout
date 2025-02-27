@@ -25,8 +25,6 @@ This project builds an **NLP pipeline** to **scrape U.S. politicians' websites**
 - [Model Descriptions](#model-descriptions)
 - [Results](#-results)
 - [Key Files & Their Purpose](#key-files--their-purpose)
-- [Future Work](#-future-work)
-- [Contributing](#-contributing)
 - [License](#license)
 
 ---
