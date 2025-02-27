@@ -10,7 +10,16 @@ This project builds an **NLP pipeline** to **scrape U.S. politicians' websites**
 
 **Goal:** Predict **political ideology** based on text data and compare different NLP models.
 
-<p align="center">
+```
+flowchart TD
+    A[Politician Ideology Prediction] -->|Scrape Websites| B[Text Data]
+    B -->|Preprocess Text| C[Cleaned Text]
+    C -->|Feature Engineering| D[TF-IDF & BERT Embeddings]
+    D -->|Train Models| E[Ridge Regression & BERT]
+    E -->|Evaluate Models| F[Performance Metrics]
+    F -->|Predict Ideology| G[Ideology Score]
+```
+
 ```mermaid
 flowchart TD
     subgraph Data Collection
@@ -49,7 +58,6 @@ flowchart TD
     G1[DW-NOMINATE Scores] -->|Ground Truth| D1
     G1 -->|Ground Truth| D2
 ```
-</p>
 
 ---
 
