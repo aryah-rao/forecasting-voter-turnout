@@ -1,0 +1,96 @@
+
+    <html>
+    <head>
+        <title>Political Ideology Dataset Analysis</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+            h1 { color: #2c3e50; }
+            h2 { color: #3498db; margin-top: 30px; }
+            h3 { color: #2980b9; }
+            img { max-width: 100%; margin: 20px 0; border: 1px solid #ddd; }
+            table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background-color: #f2f2f2; }
+            tr:hover { background-color: #f5f5f5; }
+            .section { margin: 40px 0; }
+            .stats { background-color: #f9f9f9; padding: 20px; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h1>Political Ideology Dataset Analysis</h1>
+        
+        <div class="section">
+            <h2>Dataset Overview</h2>
+            <div class="stats">
+                <p><strong>Total Records:</strong> 434</p>
+                <p><strong>Complete Records:</strong> 434</p>
+                <p><strong>Missing Ideology Scores:</strong> 0</p>
+                <p><strong>Missing Text Data:</strong> 0</p>
+            </div>
+            
+            <h3>Ideology Score Statistics</h3>
+            <div class="stats">
+                <p><strong>Mean:</strong> 0.0674</p>
+                <p><strong>Median:</strong> 0.1285</p>
+                <p><strong>Min:</strong> -0.7820</p>
+                <p><strong>Max:</strong> 0.9430</p>
+                <p><strong>Standard Deviation:</strong> 0.4727</p>
+            </div>
+            
+            <h3>Text Length Statistics</h3>
+            <div class="stats">
+                <p><strong>Mean:</strong> 731.25 words</p>
+                <p><strong>Median:</strong> 553.00 words</p>
+                <p><strong>Min:</strong> 47 words</p>
+                <p><strong>Max:</strong> 11141 words</p>
+                <p><strong>Standard Deviation:</strong> 702.75 words</p>
+            </div>
+            
+            <h3>Ideological Categories Distribution</h3>
+            <table>
+                <tr>
+                    <th>Category</th>
+                    <th>Count</th>
+                    <th>Percentage</th>
+                </tr>
+                <tr><td>Far Left</td><td>32</td><td>7.4%</td></tr>
+<tr><td>Left</td><td>177</td><td>40.8%</td></tr>
+<tr><td>Center</td><td>12</td><td>2.8%</td></tr>
+<tr><td>Right</td><td>98</td><td>22.6%</td></tr>
+<tr><td>Far Right</td><td>115</td><td>26.5%</td></tr>
+
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>Ideology Distribution</h2>
+            <p>This section shows the distribution of ideology scores in the dataset.</p>
+            <img src="ideology_distribution.png" alt="Ideology Distribution">
+        </div>
+        
+        <div class="section">
+            <h2>Text Properties</h2>
+            <p>Analysis of text length and other properties across different ideology categories.</p>
+            <img src="text_properties.png" alt="Text Properties">
+        </div>
+        
+        <div class="section">
+            <h2>Vocabulary Analysis</h2>
+            <p>Word clouds and top terms for each ideological category.</p>
+            <img src="vocabulary_analysis.png" alt="Vocabulary Analysis">
+        </div>
+        
+        <div class="section">
+            <h2>Topic Modeling</h2>
+            <p>Latent Dirichlet Allocation (LDA) results showing main topics for each ideological category.</p>
+            <img src="topic_modeling.png" alt="Topic Modeling">
+        </div>
+        
+        <div class="section">
+            <h2>Comparative Linguistic Analysis</h2>
+            <p>Comparison of linguistic features across ideological categories.</p>
+            <img src="comparative_linguistics.png" alt="Comparative Linguistics">
+        </div>
+    </body>
+    </html>
+    

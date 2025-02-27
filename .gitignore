@@ -72,7 +72,6 @@ venv.bak/
 
 # Logs and results
 logs/
-results/
 *.log
 
 # Figures and visualizations
