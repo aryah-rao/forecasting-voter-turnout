@@ -1,68 +1,117 @@
-# Politician Ideology Analysis Tool
+# Politician Ideology Prediction (NLP + ML Pipeline)
 
-This project is an **NLP pipeline** that scrapes U.S. politicians' websites, processes their text, and assigns them an **ideology score** (liberal to conservative) based on **DW-NOMINATE** scores. The goal is to highlight discrepancies between **party labels** and politicians' **actual ideological positions**.
+This project builds an **NLP pipeline** to **scrape U.S. politicians' websites**, process their text, and predict their **ideology score** (DW-NOMINATE) using **Machine Learning & Deep Learning** models.
 
-## 📂 Project Structure
+**Goal:** Predict **political ideology** based on text data and compare different NLP models.
+
+---
+
+## **Project Structure**
 
 ```bash
-politician_ideology_project/
-│── data/                       # Stores scraped data, DW-NOMINATE scores, and processed text
-│   ├── politicians.json        # Scraped websites' text data
-│   ├── DW-NOMINATE.csv         # Ground truth ideology scores (downloaded from Voteview)
-│   ├── processed_data.csv      # Cleaned and preprocessed dataset
+nlp-predicting-ideology/
+│── data/                      # 📂 Stores datasets
+│   ├── final_dataset.csv      # Cleaned dataset with processed text & DW-NOMINATE scores
+│   ├── merged_politicians.csv # Merged data before preprocessing
+│   ├── politicians.json       # Scraped website text
 │
-│── models/                     # Stores trained models
-│   ├── ridge_regression.pkl    # 
+│── models/                    # 📂 Trained models
+│   ├── ridge_regression.pkl   # Ridge Regression model
+│   ├── xgboost.pkl            # XGBoost model
+│   ├── lstm.h5                # LSTM model
+│   ├── bert_model/            # BERT fine-tuned model
 │
-│── notebooks/                  # Jupyter Notebooks for exploration & debugging
-│   ├── 01_scraping.ipynb
-│   ├── 02_feature_extraction.ipynb
-│   ├── 03_model_training.ipynb
-│   ├── 04_visualization.ipynb
+│── src/                       # 📂 Core code (training & preprocessing)
+│   ├── embedding_utils.py     # Handles text embeddings (TF-IDF, Word2Vec, BERT)
+│   ├── preprocess.py          # Preprocesses text (cleans data, removes NaN, filters word count)
+│   ├── train_ridge.py         # Trains Ridge Regression model
+│   ├── train_xgboost.py       # Trains XGBoost model
+│   ├── train_lstm.py          # Trains LSTM model
+│   ├── train_bert.py          # Fine-tunes BERT model
+│   ├── evaluate_models.py     # Compares all trained models
 │
-│── politician_scraper/         # Scrapy spider project for web scraping
-│   ├── politician_scraper/
-│   │   ├── spiders/
-│   │   │   ├── politicians.py  # Scrapy spider script
-│   │   ├── settings.py
-│   │   ├── pipelines.py
-│   ├── scrapy.cfg
+│── politician_scraper/        # 📂 Web scraping (Scrapy framework)
+│   ├── spiders/
+│   │   ├── politicians.py     # Scrapy spider script to scrape website text
 │
-│── src/                        # Main Python scripts for processing & training
-│   ├── scraping.py             # Calls Scrapy to scrape websites
-│   ├── preprocess.py           # Cleans and processes text data
-│   ├── feature_extraction.py   # TF-IDF, BERT embeddings, and topic modeling
-│   ├── train_model.py          # Trains Ridge Regression model
-│   ├── validate.py             # Evaluates model against DW-NOMINATE
-│   ├── visualize.py            # Generates ideology vs. party comparison plots
-│
-│── requirements.txt            # Dependencies for the project
-│── README.md                   # Project documentation
-│── main.py                     # Entry point for running the entire pipeline
+│── requirements.txt           # 🔧 Project dependencies
+│── README.md                  # 📚 Project documentation
 ```
 
-## 🚀 How to Run the Pipeline
+---
 
-### **1️⃣ Install Dependencies**
+## **🛠️ Installation**
+### **Clone the Repository**
+```bash
+git clone https://github.com/yourusername/nlp-predicting-ideology.git
+cd nlp-predicting-ideology
+```
+
+### **Create a Virtual Environment (Optional)**
+```bash
+python -m venv venv
+source venv/bin/activate  # On Mac/Linux
+venv\Scripts\activate     # On Windows
+```
+
+### **Install Dependencies**
 ```bash
 pip install -r requirements.txt
 ```
-2️⃣ Scrape Politicians' Websites
+
+---
+
+## **Pipeline Workflow**
+The pipeline follows these steps:
+
+**Scrape Politicians' Websites** (`politician_scraper/`)
 ```bash
 cd politician_scraper
-scrapy crawl politicians -o ../data/politicians.json
+python -m scrapy crawl politicians -o ../data/politicians.json
 ```
-3️⃣ Preprocess and Extract Features
+
+**Preprocess Text** (`preprocess.py`)
 ```bash
 python src/preprocess.py
-python src/feature_extraction.py
 ```
-4️⃣ Train the Model
+
+**Train Different Models**
 ```bash
-python src/train_model.py
+python src/train_ridge.py
+python src/train_xgboost.py
+python src/train_lstm.py
+python src/train_bert.py
 ```
-5️⃣ Validate and Visualize Results
+
+**Evaluate All Models** (`evaluate_models.py`)
 ```bash
-python src/validate.py
-python src/visualize.py
+python src/evaluate_models.py
 ```
+
+---
+
+## **Model Descriptions**
+| **Model** | **Embeddings Used** | **Pros** | **Cons** |
+|-----------|---------------------|----------|----------|
+| **Ridge Regression** | TF-IDF | Fast & interpretable | Doesn't capture context |
+| **XGBoost** | Word2Vec | Captures non-linearity | Slower than Ridge |
+| **LSTM** | Word2Vec | Sequential learning | Requires large dataset |
+| **BERT Fine-Tuning** | BERT | Best accuracy | Requires GPU |
+
+---
+
+## **Key Files & Their Purpose**
+| **File** | **Description** |
+|----------|---------------|
+| `preprocess.py` | Cleans and filters the dataset before training |
+| `embedding_utils.py` | Converts text into TF-IDF, Word2Vec, or BERT embeddings |
+| `train_ridge.py` | Trains Ridge Regression with TF-IDF |
+| `train_xgboost.py` | Trains XGBoost with Word2Vec |
+| `train_lstm.py` | Trains an LSTM using Word2Vec |
+| `train_bert.py` | Fine-tunes BERT on our dataset |
+| `evaluate_models.py` | Compares all trained models and prints evaluation metrics |
+
+---
+
+## **License**
+MIT License. Free to use and modify.

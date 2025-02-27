@@ -90,3 +90,22 @@ ROBOTSTXT_OBEY = True
 # Set settings whose default value is deprecated to a future-proof value
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
+
+DOWNLOAD_TIMEOUT = 30  # Increase timeout for slow websites
+CONCURRENT_REQUESTS = 10  # Allow more parallel requests
+RETRY_TIMES = 3  # Retry failed requests
+
+ROBOTSTXT_OBEY = False  # Allow scraping blocked sites
+DOWNLOAD_DELAY = 1  # Avoid triggering anti-scraping mechanisms
+
+CONCURRENT_REQUESTS = 5  # Reduce the number of parallel requests
+CONCURRENT_REQUESTS_PER_DOMAIN = 3  # Reduce requests per website
+CONCURRENT_REQUESTS_PER_IP = 3  # Reduce simultaneous requests per IP
+DOWNLOAD_DELAY = 1.5  # Add a delay between requests
+RETRY_TIMES = 3  # Retry failed requests before giving up
+
+
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_START_DELAY = 2  # Start with 2-second delay
+AUTOTHROTTLE_MAX_DELAY = 10  # Maximum delay between requests
+AUTOTHROTTLE_TARGET_CONCURRENCY = 3  # Reduce parallelism

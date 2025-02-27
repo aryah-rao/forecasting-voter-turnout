@@ -1,0 +1,117 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+profile_default/
+ipython_config.py
+
+# ML models and datasets
+*.pkl
+*.model
+*.keras
+*.h5
+*.pt
+*.pth
+*.bin
+*.vec
+*.npz
+*.csv
+*.json
+./nlp-predicting-ideology/models/
+./nlp-predicting-ideology/models/data/
+
+# Exception for example configuration or structural data files that should be tracked
+!data/final_dataset.csv
+!data/example_*.json
+!data/README.md
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+.conda/
+
+# IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.sublime-workspace
+*.sublime-project
+.spyderproject
+.spyproject
+.ropeproject
+
+# Logs and results
+logs/
+results/
+*.log
+
+# Figures and visualizations
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.pdf
+plots/
+figures/
+
+# TensorFlow specific
+checkpoint
+*.ckpt.*
+events.out.tfevents*
+
+# Transformer models
+**/bert_model/
+**/roberta_model/
+**/model_cache/
+.cache/
+*.safetensors
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+
+# System files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Large files tracking with Git LFS
+# *.h5 filter=lfs diff=lfs merge=lfs -text
+# *.keras filter=lfs diff=lfs merge=lfs -text
+# *.pkl filter=lfs diff=lfs merge=lfs -text
+# *.pt filter=lfs diff=lfs merge=lfs -text
