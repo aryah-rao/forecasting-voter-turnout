@@ -1,0 +1,22 @@
+# NLP & Data Processing
+numpy
+pandas
+scikit-learn
+nltk
+gensim
+sentence-transformers
+
+datasets  # For Hugging Face Dataset integration
+
+# Machine Learning
+xgboost
+tensorflow
+torch
+transformers
+
+# Web Scraping 
+scrapy
+beautifulsoup4
+
+# Misc
+joblib
