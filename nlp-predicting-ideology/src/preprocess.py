@@ -21,19 +21,23 @@ from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 from pathlib import Path
 
+# Define the base directory based on script location
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+LOGS_DIR = os.path.join(BASE_DIR, "logs")
+
+# Create logs directory if it doesn't exist
+os.makedirs(LOGS_DIR, exist_ok=True)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(os.path.join("..", "logs", "preprocessing.log"), mode='a')
+        logging.FileHandler(os.path.join(LOGS_DIR, "preprocessing.log"), mode='a')
     ]
 )
 logger = logging.getLogger("preprocess")
-
-# Create logs directory if it doesn't exist
-os.makedirs(os.path.join("..", "logs"), exist_ok=True)
 
 # Ensure all necessary NLTK resources are downloaded
 try:
@@ -45,7 +49,7 @@ except Exception as e:
     logger.warning(f"Error downloading NLTK resources: {e}")
 
 # Define file paths
-DATA_DIR = os.path.join("..", "data")
+DATA_DIR = os.path.join(BASE_DIR, "data")
 NOMINATE_PATH = os.path.join(DATA_DIR, "DW-NOMINATE.csv")
 WEBSITE_MAPPING_PATH = os.path.join(DATA_DIR, "matching_bionames_and_urls_with_websites.csv")
 SCRAPED_DATA_PATH = os.path.join(DATA_DIR, "politicians.json")
