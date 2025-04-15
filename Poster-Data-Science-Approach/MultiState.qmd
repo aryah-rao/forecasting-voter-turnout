@@ -1,0 +1,45 @@
+---
+title: "Data Exploration with 2016 Ohio Primary and General Data"
+authors: "Jenny Nguyen"
+toc: true
+toc-depth: 3
+toc-title: Table of Contents
+date: Mar 11, 2025
+format: html
+editor: visual
+self-contained: true
+warning: false
+code-fold: false
+---
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+
+# Create the dataset
+data <- data.frame(
+  States = c("Maryland", "Florida", "North Carolina", "Oregon", "Ohio"),
+  Party = factor(c("Democratic", "Republican", "Republican", "Democratic", "Republican"), 
+                 levels = c("Democratic", "Republican")),
+  Overperformance_REP = c(1.230, -6.132, 0.678, 0.545, -6.062),
+  Vote_share_REP = c(45.0, 50.6, 51.8, 43.5, 54.27)
+)
+
+# Create the plot
+ggplot(data, aes(x = Vote_share_REP, y = Overperformance_REP, label = paste(States, "(", Vote_share_REP, ",", Overperformance_REP, ")"), color = Party)) +
+  geom_point(size = 4) +  # Create points
+  geom_text(vjust = -1, hjust = 0.5) +  # Add labels with exact coordinates
+  labs(
+    x = "% Vote share of REP in General Election",
+    y = "% Overperformance of REP weighted by General Turnout",
+    title = "Overperformance vs. Vote Share of REP in General Elections",
+    color = "Party Winning General Election"  # Improved legend title
+  ) +
+  scale_color_manual(values = c("Democratic" = "blue", "Republican" = "red"),
+                     labels = c("Democratic", "Republican")) +  # Explicitly set labels
+  theme_minimal() +
+  xlim(42, 55) +  # Adjust x-axis limits to zoom out
+  ylim(-7, 2.5) +
+  guides(color = guide_legend(override.aes = list(label = "")))  # Remove any extra labels in legend
+```
+
