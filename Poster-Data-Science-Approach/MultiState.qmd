@@ -1,10 +1,10 @@
 ---
-title: "Data Exploration with 2016 Ohio Primary and General Data"
+title: "Multi State"
 authors: "Jenny Nguyen"
 toc: true
 toc-depth: 3
 toc-title: Table of Contents
-date: Mar 11, 2025
+date: April 15, 2025
 format: html
 editor: visual
 self-contained: true
@@ -42,4 +42,3 @@ ggplot(data, aes(x = Vote_share_REP, y = Overperformance_REP, label = paste(Stat
   ylim(-7, 2.5) +
   guides(color = guide_legend(override.aes = list(label = "")))  # Remove any extra labels in legend
 ```
-
