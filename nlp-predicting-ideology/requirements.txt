@@ -17,6 +17,7 @@ transformers
 # Web Scraping 
 scrapy
 beautifulsoup4
+selenium
 
 # Misc
 joblib

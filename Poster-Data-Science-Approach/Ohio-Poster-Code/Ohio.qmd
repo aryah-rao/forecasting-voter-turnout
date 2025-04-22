@@ -1,0 +1,137 @@
+---
+title: "Data Exploration with 2016 Ohio Primary and General Data"
+authors: "Jenny Nguyen"
+toc: true
+toc-depth: 3
+toc-title: Table of Contents
+date: April 15, 2025
+format: html
+editor: visual
+self-contained: true
+warning: false
+code-fold: false
+---
+
+```{r}
+# Load libraries
+library(tidyverse)   # For data manipulation and visualization
+library(ggplot2)     # For visualization
+library(dplyr)       # Data manipulation
+library(readr)       # Read CSV files
+library(ggpmisc)
+
+
+# Read CSV file
+df <- read.csv("elections_OH16_basic.csv")
+```
+
+```{r}
+# Ensure columns are numeric
+df$total.votes_gen_REP <- as.numeric(df$total.votes_gen_REP)
+df$total.votes_gen_DEM <- as.numeric(df$total.votes_gen_DEM)
+
+# Calculate the sums
+sum_rep <- sum(df$total.votes_gen_REP, na.rm = TRUE)
+sum_dem <- sum(df$total.votes_gen_DEM, na.rm = TRUE)
+
+print(paste("Total REP Votes:", sum_rep))
+print(paste("Total DEM Votes:", sum_dem))
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Calculate vote shares
+df <- df %>%
+  mutate(rep_primary_share = total.votes_REP / (total.votes_REP + total.votes_DEM),
+         rep_general_share = total.votes_gen_REP / (total.votes_gen_REP + total.votes_gen_DEM),
+         primary_turnout = total.votes_REP + total.votes_DEM)
+
+
+# Define scales for the color gradient
+scales <- c(0, 1000, 2000, 2001, max(df$primary_turnout))
+
+# Create the scatter plot for Republicans
+ggplot(df, aes(x = rep_primary_share, y = rep_general_share)) +
+  geom_point(
+    aes(shape = "precinct data", color = primary_turnout),
+    fill   = NA,     # hollow circles
+    stroke = 0.7,    # outline thickness
+    size   = 1.5,
+    alpha  = 0.8
+  ) +
+  # Draw the null model line without legend entry
+  geom_abline(
+    slope = 1, intercept = 0,
+    color = "blue",
+    size  = 1,
+    show.legend = FALSE
+  ) +
+  # Dummy layer for legend entry for "null model"
+  geom_line(
+    data = tibble(x = c(0, 1), y = c(0, 1)),
+    aes(x = x, y = y, linetype = "null model"),
+    color = "blue",
+    size  = 1,
+    show.legend = TRUE
+  ) +
+  annotate("text", x = 0.20, y = 0.85, label = "Overperform",
+           color = "gray20", size = 4) +
+  annotate("text", x = 0.80, y = 0.15, label = "Underperform",
+           color = "gray20", size = 4) +
+  scale_color_gradientn(
+    name = "Primary Turnout (votes)",
+    colors = c("gold", "green","darkgreen", "red","red"),  # Improved smooth color gradient
+    values = scales::rescale(scales)  # Map colors to quartiles
+  ) +
+  
+  scale_shape_manual(
+    name   = "",
+    values = c("precinct data" = 21)
+  ) +
+  scale_linetype_manual(
+    name   = "",
+    values = c("null model" = 1)
+  ) +
+  labs(
+    x     = "Primary REP Vote Share",
+    y     = "General REP Vote Share"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title     = element_text(hjust = 0.5, face = "bold"),
+    legend.box     = "vertical",
+    legend.position = "right"
+  ) +
+  guides(
+    shape = guide_legend(
+      order = 1,
+      override.aes = list(
+        linetype = 0,    # no line crossing the circle in legend
+        color    = "black",
+        fill     = NA
+      )
+    ),
+    linetype = guide_legend(order = 2),
+    color = guide_colorbar(order = 3)
+  )
+
+```
+
+```{r}
+# Calculate the weighted average difference
+weighted_avg_diff <- df %>% 
+  mutate(
+    # Calculate difference from y=x line (general_share - primary_share)
+    diff_from_expected = rep_general_share - rep_primary_share
+  ) %>%
+  summarize(
+    # Sum of (weight * difference) divided by sum of weights
+    weighted_avg = sum((total.votes_gen_DEM+total.votes_gen_REP) * diff_from_expected, na.rm = TRUE) / sum((total.votes_gen_DEM+total.votes_gen_REP), na.rm = TRUE)
+  ) %>%
+  pull(weighted_avg)
+
+# Print the result
+print(paste("Weighted average difference:", weighted_avg_diff))
+```

@@ -1,0 +1,572 @@
+---
+title: "Analysis of Florida 2016 Primary Election and General Election"
+authors: "Linh Bui"
+toc: true
+toc-depth: 3
+toc-title: Table of Contents
+date: Feb 2, 2025
+format: html
+editor: visual
+self-contained: true
+warning: false
+code-fold: true
+---
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+# If needed, install the tidyverse (close and reopen R if packages are locked)
+# install.packages("tidyverse")
+
+library(tidyverse)
+
+# 1. Read your dataset
+# Replace "FL-primary-2016.csv" with the actual path to your file.
+df <- read_csv("FL-primary-2016.csv", show_col_types = FALSE)
+
+# 2. Summarize total votes by candidate and party
+df_summarized <- df %>%
+  group_by(Party, `Name Raw`) %>%
+  summarise(total_votes = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# 3. Plot a bar chart
+ggplot(df_summarized, aes(x = reorder(`Name Raw`, -total_votes),
+                          y = total_votes,
+                          fill = Party)) +
+  geom_col() +
+  # 3a. Add the vote labels on top of each column
+  geom_text(aes(label = total_votes), 
+            vjust = -0.3,       # position text slightly above the bar
+            size = 2) +         # adjust text size as needed
+  # 3b. Manually set party colors (customize as needed)
+  scale_fill_manual(values = c("REP" = "red",
+                               "DEM" = "blue",
+                               "NPA" = "green")) +
+  # 3c. Labels and theme
+  labs(
+    title = "Total Votes by Candidate (Florida Primary 2016)",
+    x = "Candidate",
+    y = "Total Votes"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title  = element_text(hjust = 0.5)
+  )
+
+```
+
+```{r}
+# If needed, install the tidyverse (close and reopen R if packages are locked)
+# install.packages("tidyverse")
+
+library(tidyverse)
+
+# 1. Read your dataset
+# Replace "FL-general-2016.csv" with the actual path to your file.
+df <- read_csv("FL-general-2016.csv", show_col_types = FALSE)
+
+# 2. Summarize total votes by candidate and party
+df_summarized <- df %>%
+  group_by(Party, `Name Raw`) %>%
+  summarise(total_votes = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# 3. Create the bar chart
+ggplot(df_summarized, aes(x = reorder(`Name Raw`, -total_votes),
+                          y = total_votes,
+                          fill = Party)) +
+  geom_col() +
+  # Add numeric labels above each bar
+  geom_text(aes(label = total_votes), 
+            vjust = -0.3,       # moves text above the bar
+            size = 2.5) +         # adjust text size as needed
+  
+  # Manually assign colors for each party (customize as needed)
+  scale_fill_manual(values = c("REP" = "red",
+                               "DEM" = "blue",
+                               "LPF" = "gold",
+                               "GRE" = "green",
+                               "CPF" = "purple")) +
+
+  # Customize labels and theme
+  labs(
+    title = "Total Votes by Candidate (Florida General 2016)",
+    x = "Candidate",
+    y = "Total Votes"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title  = element_text(hjust = 0.5)
+  )
+
+
+```
+
+```{r}
+#--------------------------------------------------------------
+# 1. Load necessary libraries
+#--------------------------------------------------------------
+# install.packages("tidyverse")
+library(tidyverse)
+
+#--------------------------------------------------------------
+# 2. Read PRIMARY data (Republicans only), omitting invalid rows
+#--------------------------------------------------------------
+df_primary_rep <- read_csv("FL-primary-2016.csv", show_col_types = FALSE) %>%
+  dplyr::filter(!( `Name Raw` %in% c("Write-ins", "Over Votes and Under Votes")))
+
+df_primary_rep_agg <- df_primary_rep %>%
+  group_by(Precinct) %>%
+  summarise(
+    rep_primary_votes   = sum(Votes[Party == "REP"], na.rm = TRUE),
+    total_primary_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(rep_primary_share = rep_primary_votes / total_primary_votes)
+
+#--------------------------------------------------------------
+# 3. Read GENERAL data (Republicans only), omitting invalid rows
+#--------------------------------------------------------------
+df_general_rep <- read_csv("FL-general-2016.csv", show_col_types = FALSE) %>%
+  dplyr::filter(!( `Name Raw` %in% c("Write-ins", "Over Votes and Under Votes")))
+
+df_general_rep_agg <- df_general_rep %>%
+  group_by(Precinct) %>%
+  summarise(
+    rep_general_votes   = sum(Votes[Party == "REP"], na.rm = TRUE),
+    total_general_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(rep_general_share = rep_general_votes / total_general_votes)
+
+#--------------------------------------------------------------
+# 4. Merge the primary and general datasets by 'Precinct'
+#--------------------------------------------------------------
+df_combined_rep <- left_join(df_primary_rep_agg, df_general_rep_agg, by = "Precinct")
+
+# Define scales for the color gradient
+scales <- c(0, 1000, 2000, 2001, max(df_combined_rep$total_primary_votes))
+
+#--------------------------------------------------------------
+# 5. Create the scatter plot for Republicans
+#--------------------------------------------------------------
+ggplot(df_combined_rep, aes(x = rep_primary_share, y = rep_general_share)) +
+  # (a) Hollow circles for precinct data, colored by primary turnout
+  geom_point(
+    aes(shape = "precinct data", color = total_primary_votes),
+    fill   = NA,     # hollow circles
+    stroke = 0.7,    # outline thickness
+    size   = 1.5,
+    alpha  = 0.8
+  ) +
+  
+  # (b) Draw the actual null model line (no mapping => no unwanted legend entry)
+  geom_abline(
+    slope = 1, intercept = 0,
+    color = "red",
+    size  = 1,
+    show.legend = FALSE
+  ) +
+  # (b1) Dummy layer for legend entry (null model line)
+  geom_line(
+    data = tibble(x = c(0, 1), y = c(0, 1)),
+    aes(x = x, y = y, linetype = "null model"),
+    color = "red",
+    size  = 1,
+    show.legend = TRUE
+  ) +
+  
+  # (c) Annotations for Overperform/Underperform
+  annotate("text", x = 0.20, y = 0.85, label = "Overperform",
+           color = "gray20", size = 4) +
+  annotate("text", x = 0.80, y = 0.15, label = "Underperform",
+           color = "gray20", size = 4) +
+  
+    scale_color_gradientn(
+    name = "Primary Turnout (votes)",
+    colors = c("gold", "green","darkgreen", "red","red"),  # Improved smooth color gradient
+    values = scales::rescale(scales)  # Map colors to quartiles
+  ) +
+  
+  scale_shape_manual(
+    name   = "",
+    values = c("precinct data" = 21)  # shape=21 => hollow circle
+  ) +
+  scale_linetype_manual(
+    name   = "",
+    values = c("null model" = 1)
+  ) +
+  
+  # (e) Labels & theme
+  labs(
+    title = "Republican Vote Share: Primary vs. General (2016)",
+    x     = "Primary REP Vote Share",
+    y     = "General REP Vote Share"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title    = element_text(hjust = 0.5, face = "bold"),
+    legend.box    = "vertical", 
+    legend.position = "right"
+  ) +
+  
+  # (f) Guides: reorder, and override shape legend so it doesn't show a line
+  guides(
+    shape = guide_legend(
+      order = 1,
+      override.aes = list(
+        linetype = 0,  # remove line crossing the circle
+        color    = "black",  # circle outline color in the legend
+        fill     = NA
+      )
+    ),
+    linetype = guide_legend(order = 2),
+    color    = guide_colorbar(order = 3)
+  )
+
+
+```
+
+```{r}
+#--------------------------------------------------------------
+# 1. Read your PRIMARY data for Democrats, omitting invalid rows
+  
+# Load necessary packages
+
+library(tidyverse)
+
+# 1. Read the primary election dataset
+df_primary_dem <- read_csv("FL-primary-2016.csv", show_col_types = FALSE) %>%
+  dplyr::filter(!( `Name Raw` %in% c("Write-ins", "Over Votes and Under Votes")))
+
+# Aggregate precinct-level DEM votes vs. total votes
+df_primary_dem_agg <- df_primary_dem %>%
+  group_by(Precinct) %>%
+  summarise(
+    dem_primary_votes   = sum(Votes[Party == "DEM"], na.rm = TRUE),
+    total_primary_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(dem_primary_share = dem_primary_votes / total_primary_votes)
+
+# 2. Read the general election dataset
+df_general_dem <- read_csv("FL-general-2016.csv", show_col_types = FALSE) %>%
+  dplyr::filter(!( `Name Raw` %in% c("Write-ins", "Over Votes and Under Votes")))
+
+df_general_dem_agg <- df_general_dem %>%
+  group_by(Precinct) %>%
+  summarise(
+    dem_general_votes   = sum(Votes[Party == "DEM"], na.rm = TRUE),
+    total_general_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(dem_general_share = dem_general_votes / total_general_votes)
+
+# 3. Merge primary and general data
+df_combined_dem <- left_join(df_primary_dem_agg, df_general_dem_agg, by = "Precinct")
+
+# 4. Plot
+ggplot(df_combined_dem, aes(x = dem_primary_share, y = dem_general_share)) +
+  
+  # (A) Hollow circles for precinct data, colored by primary turnout
+  geom_point(
+    aes(shape = "precinct data", color = total_primary_votes),
+    fill   = NA,   # hollow circles
+    stroke = 0.7,  # outline thickness
+    size   = 1.5,
+    alpha  = 0.8
+  ) +
+  
+  # (B) Draw the actual null model line (no legend entry)
+  geom_abline(
+    slope = 1, intercept = 0,
+    color = "red",
+    size  = 1,
+    show.legend = FALSE
+  ) +
+  
+  # (B1) Dummy layer to create a legend entry for "null model"
+  geom_line(
+    data = tibble(x = c(0, 1), y = c(0, 1)),
+    aes(x = x, y = y, linetype = "null model"),
+    color = "red",
+    size  = 1,
+    show.legend = TRUE
+  ) +
+  
+  # (C) Overperform/Underperform annotations
+  annotate("text", x = 0.20, y = 0.85, label = "Overperform",
+           color = "gray20", size = 4) +
+  annotate("text", x = 0.80, y = 0.15, label = "Underperform",
+           color = "gray20", size = 4) +
+  
+  # (D) Scales for color, shape, and linetype
+  scale_color_gradient(
+    name = "Primary Turnout (votes)",
+    low  = "blue",
+    high = "yellow"
+  ) +
+  scale_shape_manual(
+    name   = "",
+    values = c("precinct data" = 21)  # shape=21 => hollow circle
+  ) +
+  scale_linetype_manual(
+    name   = "",
+    values = c("null model" = 1)
+  ) +
+  
+  # (E) Labels & theme
+  labs(
+    title = "Democratic Vote Share: Primary vs. General (2016)",
+    x     = "Primary DEM Vote Share",
+    y     = "General DEM Vote Share"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title     = element_text(hjust = 0.5, face = "bold"),
+    legend.box     = "vertical",  
+    legend.position = "right"
+  ) +
+  
+  # (F) Guides: reorder & override shape legend to avoid line crossing the circle
+  guides(
+    shape = guide_legend(
+      order = 1,
+      override.aes = list(
+        linetype = 0,  # no line in the shape legend key
+        color    = "black",  # circle outline color in legend
+        fill     = NA
+      )
+    ),
+    linetype = guide_legend(order = 2),
+    color    = guide_colorbar(order = 3)
+  )
+
+```
+
+```{r}
+#--------------------------------------------------------------
+# 0. Install/Load Packages (uncomment if needed)
+#--------------------------------------------------------------
+# install.packages("tidyverse")  
+# install.packages("ggplot2")
+
+library(tidyverse)
+library(ggplot2)
+
+#--------------------------------------------------------------
+# 1. Read & Filter Primary Data
+#    Summarize precinct-level REP & DEM votes
+#--------------------------------------------------------------
+df_primary <- read_csv("FL-primary-2016.csv", show_col_types = FALSE) %>%
+  dplyr::filter(!(`Name Raw` %in% c("Write-ins", "Over Votes and Under Votes")))
+
+df_primary_agg <- df_primary %>%
+  group_by(Precinct) %>%
+  summarise(
+    rep_primary_votes = sum(Votes[Party == "REP"], na.rm = TRUE),
+    dem_primary_votes = sum(Votes[Party == "DEM"], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#--------------------------------------------------------------
+# 2. Read & Filter General Data
+#    Summarize precinct-level REP & DEM votes
+#--------------------------------------------------------------
+df_general <- read_csv("FL-general-2016.csv", show_col_types = FALSE) %>%
+  dplyr::filter(!(`Name Raw` %in% c("Write-ins", "Over Votes and Under Votes")))
+
+df_general_agg <- df_general %>%
+  group_by(Precinct) %>%
+  summarise(
+    rep_general_votes   = sum(Votes[Party == "REP"], na.rm = TRUE),
+    dem_general_votes   = sum(Votes[Party == "DEM"], na.rm = TRUE),
+    total_general_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#--------------------------------------------------------------
+# 3. Merge Primary & General Data by Precinct
+#    Remove precincts with zero votes
+#--------------------------------------------------------------
+df_combined <- left_join(df_primary_agg, df_general_agg, by = "Precinct") %>%
+  dplyr::filter((rep_primary_votes + dem_primary_votes) > 0, 
+         total_general_votes > 0)
+
+#--------------------------------------------------------------
+# 4. Calculate REP Overperformance
+#    rep_overperf = rep_general_share - rep_primary_share
+#--------------------------------------------------------------
+df_combined <- df_combined %>%
+  mutate(
+    rep_primary_share = rep_primary_votes / (rep_primary_votes + dem_primary_votes),
+    rep_general_share = rep_general_votes / total_general_votes,
+    rep_overperf      = rep_general_share - rep_primary_share
+  )
+
+#--------------------------------------------------------------
+# 5. Create the Square-Pixel Heatmap
+#    EXACTLY matching the reference figure
+#--------------------------------------------------------------
+ggplot(df_combined, aes(x = rep_primary_votes, 
+                        y = dem_primary_votes, 
+                        z = rep_overperf)) +
+  # (a) Use stat_summary_2d for the average REP overperf in each bin
+  stat_summary_2d(
+    aes(fill = ..value..),
+    fun  = function(z) mean(z, na.rm = TRUE),
+    bins = 80  # matches the reference figure’s pixel resolution
+  ) +
+  
+  # (b) Diverging color scale: negative = DEM overperform, positive = REP overperform
+  scale_fill_gradientn(
+  colours = c("midnightblue", "darkblue", "blue", "deepskyblue", "cyan", 
+  "springgreen", "green", "yellow", "gold", 
+  "orange", "orangered", "red","pink")
+,
+  name = "average general REP total vote share difference from null model",
+  limits = range(df_combined$rep_overperf, na.rm = TRUE),
+  guide = guide_colorbar(
+    # Orient the bar vertically
+    direction = "vertical",
+    
+    # Make the bar taller/wider as needed
+    barheight = unit(11, "cm"),
+    barwidth  = unit(0.5, "cm"),
+    
+    # Put the title on the left side, labels on the right
+    title.position = "left",
+    label.position = "right",
+    
+    # Rotate the title 90 degrees and add a small margin
+    title.theme = element_text(
+      size = 9,
+      angle  = 90,
+      margin = margin(r = 5)  # add space to avoid overlap
+    )
+  )
+) +
+  
+  # (c) Force a 1:1 aspect ratio so the bins appear square
+  coord_fixed() +
+  
+  # (d) Add text annotations (tweak x/y if needed for your data)
+  annotate("text", x = 400, y = 1600, label = "DEM overperform", 
+           color = "blue", size = 4, fontface = "bold") +
+  annotate("text", x = 2300, y = 100, label = "REP overperform", 
+           color = "red", size = 4, fontface = "bold") +
+  
+  # (e) Titles, labels, theme
+  labs(
+    x        = "primary REP vote total",
+    y        = "primary DEM vote total"
+  ) +
+  
+  scale_x_continuous(breaks = seq(0, max(df_combined$rep_primary_votes, na.rm = TRUE), by = 300)) +
+  scale_y_continuous(breaks = seq(0, max(df_combined$dem_primary_votes, na.rm = TRUE), by = 300)) +
+  
+  theme_minimal() +
+theme(
+  plot.title    = element_text(face = "bold", size = 14),
+  plot.subtitle = element_text(size = 11),
+
+  # Turn off major & minor grid lines
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  
+  # Optionally, draw axis lines
+  axis.line = element_line(color = "black"),
+  
+  # Optionally, show axis ticks (in case minimal theme hides them)
+  axis.ticks = element_line(color = "black")
+)
+```
+
+```{r}
+library(tidyverse)
+
+# (1) Read & Summarize the Data (using your existing code)
+df_combined <- left_join(
+  read_csv("FL-Primary-2016.csv", show_col_types = FALSE) %>%
+    dplyr::filter(!(`Name Raw` %in% c("Write-ins", "Over Votes and Under Votes"))) %>%
+    group_by(Precinct, Party) %>%
+    summarise(primary_votes = sum(Votes, na.rm = TRUE), .groups = "drop"),
+  read_csv("FL-General-2016.csv", show_col_types = FALSE) %>%
+    dplyr::filter(!(`Name Raw` %in% c("Write-ins", "Over Votes and Under Votes"))) %>%
+    group_by(Precinct, Party) %>%
+    summarise(general_votes = sum(Votes, na.rm = TRUE), .groups = "drop"),
+  by = c("Precinct", "Party")
+) %>%
+  dplyr::filter(!is.na(primary_votes), !is.na(general_votes),
+                primary_votes > 0, general_votes > 0) %>%
+  dplyr::filter(Party %in% c("REP", "DEM"))
+
+# (2) Compute regression models for each party
+dem_model <- lm(general_votes ~ primary_votes, data = df_combined %>% dplyr::filter(Party == "DEM"))
+rep_model <- lm(general_votes ~ primary_votes, data = df_combined %>% dplyr::filter(Party == "REP"))
+
+# Extract coefficients
+dem_coef <- coef(dem_model)  # dem_coef[1]: intercept, dem_coef[2]: slope
+rep_coef <- coef(rep_model)
+
+# (3) Plot scatter points and regression lines using computed slopes
+ggplot(df_combined, aes(x = primary_votes, y = general_votes)) +
+  # Scatter points colored by Party
+  geom_point(aes(color = Party),
+             shape = 21, fill = NA, size = 2, stroke = 0.5) +
+  # Regression line for DEM (blue)
+  geom_abline(slope = dem_coef[2], intercept = dem_coef[1],
+              color = "blue", size = 1) +
+  # Regression line for REP (red)
+  geom_abline(slope = rep_coef[2], intercept = rep_coef[1],
+              color = "red", size = 1) +
+  # Annotate the DEM line: place label near the right end of the line.
+  # Adjust 'x' and 'y' as needed based on your data range.
+  annotate("text",
+           x = max(df_combined$primary_votes, na.rm = TRUE) * 0.8,
+           y = dem_coef[2] * (max(df_combined$primary_votes, na.rm = TRUE) * 0.8) + dem_coef[1],
+           label = paste0("y = ", round(dem_coef[2], 2), "x + ", round(dem_coef[1], 2)),
+           color = "blue", size = 2.8, fontface = "bold", hjust = 0) +
+  # Annotate the REP line
+  annotate("text",
+           x = max(df_combined$primary_votes, na.rm = TRUE) * 0.8,
+           y = rep_coef[2] * (max(df_combined$primary_votes, na.rm = TRUE) * 0.8) + rep_coef[1],
+           label = paste0("y = ", round(rep_coef[2], 2), "x + ", round(rep_coef[1], 2)),
+           color = "red", size = 2.8, fontface = "bold", hjust = 0) +
+  scale_color_manual(values = c("DEM" = "blue", "REP" = "red")) +
+  labs(
+    title = "How well does turnout for a party in the primaries\npredict turnout in the general election?",
+    x     = "primary party vote total",
+    y     = "general party vote total",
+    color = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title    = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line        = element_line(color = "black"),
+    axis.ticks       = element_line(color = "black")
+  )
+
+```
+
+```{r}
+# Calculate the weighted average difference
+weighted_avg_diff <- df_combined_rep %>% 
+  mutate(
+    # Calculate difference from y=x line (general_share - primary_share)
+    diff_from_expected = rep_general_share - rep_primary_share
+  ) %>%
+  summarize(
+    # Sum of (weight * difference) divided by sum of weights
+    weighted_avg = sum(total_general_votes * diff_from_expected, na.rm = TRUE) / sum(total_general_votes, na.rm = TRUE)
+  ) %>%
+  pull(weighted_avg)
+
+# Print the result
+print(paste("Weighted average difference:", weighted_avg_diff))
+```

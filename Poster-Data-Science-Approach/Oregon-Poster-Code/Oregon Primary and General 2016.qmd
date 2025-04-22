@@ -1,0 +1,404 @@
+---
+title: "Data Exploration with 2016 Oregon Primary and General Data"
+authors: "Jenny Nguyen"
+toc: true
+toc-depth: 3
+toc-title: Table of Contents
+date: April 15, 2025
+format: html
+editor: visual
+self-contained: true
+warning: false
+code-fold: false
+---
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+
+# Read the OR primary election dataset
+df_or_primary <- read_csv("OR-Primary-2016.txt", show_col_types = FALSE) %>%
+  dplyr::filter(!( `Name Raw` %in% c("Write-ins")))
+
+# Correct code to recode Party values
+df_or_primary$Party <- df_or_primary$Party %>%
+  recode(
+    "D" = "DEM",         # Change "D" to "DEM"
+    "Democrat" = "DEM",  # Change "Democrat" to "DEM"
+    "R" = "REP",         # Change "R" to "REP"
+    "Republican" = "REP" # Change "Republican" to "REP"
+  )
+# For df_or_primary
+df_or_primary <- df_or_primary %>%
+  filter(!str_detect(Jurisdiction, "Total"))
+
+# Summarize total votes by candidate and party
+df_or_primary_summarized <- df_or_primary %>%
+  group_by(Party, `Name Raw`) %>%
+  summarise(total_votes = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# Plot a bar chart for Oregon Primary Election
+ggplot(df_or_primary_summarized, aes(x = reorder(`Name Raw`, -total_votes),
+                                     y = total_votes,
+                                     fill = Party)) +
+  geom_col() +
+  geom_text(aes(label = total_votes), 
+            vjust = -0.3,       # position text slightly above the bar
+            size = 1.5) +         # adjust text size as needed
+  scale_fill_manual(values = c("REP" = "red",
+                               "DEM" = "blue")) +
+  labs(
+    title = "Total Votes by Candidate (OR Primary 2016)",
+    x = "Candidate",
+    y = "Total Votes"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title  = element_text(hjust = 0.5)
+  )
+
+```
+
+```{r}
+# Read the Oregon general election dataset
+df_or_general <- read_csv("OR-General-2016.txt", show_col_types = FALSE) %>%
+  dplyr::filter(!( `Name Raw` %in% c("Write-ins")))
+
+# Correct code to recode Party values
+df_or_general$Party <- df_or_general$Party %>%
+  recode(
+    "D" = "DEM",         # Change "D" to "DEM"
+    "Democrat" = "DEM",  # Change "Democrat" to "DEM"
+    "R" = "REP",         # Change "R" to "REP"
+    "Republican" = "REP" # Change "Republican" to "REP"
+  )
+
+# For df_or_general
+df_or_general <- df_or_general %>%
+  filter(!str_detect(Jurisdiction, "Total"))
+
+# Summarize total votes by candidate and party
+df_or_general_summarized <- df_or_general %>%
+  group_by(Party, `Name Raw`) %>%
+  summarise(total_votes = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# Plot a bar chart for Oregon General Election
+ggplot(df_or_general_summarized, aes(x = reorder(`Name Raw`, -total_votes),
+                                     y = total_votes,
+                                     fill = Party)) +
+  geom_col() +
+  geom_text(aes(label = total_votes), 
+            vjust = -0.3,       # position text slightly above the bar
+            size = 1.5) +         # adjust text size as needed
+  scale_fill_manual(values = c("REP" = "red",
+                               "DEM" = "blue",
+                               "LPF" = "gold",
+                               "GRE" = "green",
+                               "CPF" = "purple")) +
+  labs(
+    title = "Total Votes by Candidate (OR General 2016)",
+    x = "Candidate",
+    y = "Total Votes"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title  = element_text(hjust = 0.5)
+  )
+
+```
+
+```{r}
+df_or_primary_rep_agg <- df_or_primary %>%
+  group_by(Precinct) %>%
+  summarise(
+    rep_primary_votes   = sum(Votes[Party == "REP"], na.rm = TRUE),
+    total_primary_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(rep_primary_share = rep_primary_votes / total_primary_votes)
+  
+
+df_or_general_rep_agg <- df_or_general %>%
+  group_by(Precinct) %>%
+  summarise(
+    rep_general_votes   = sum(Votes[Party == "REP"], na.rm = TRUE),
+    total_general_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(rep_general_share = rep_general_votes / total_general_votes)
+  
+# Merge Oregon primary and general data for Republicans
+df_or_combined_rep <- left_join(df_or_primary_rep_agg, df_or_general_rep_agg, by = "Precinct")
+  
+# Define scales for the color gradient
+scales <- c(0, 1000, 2000, 2001, max(df_or_combined_rep$total_primary_votes))
+
+# Create the scatter plot for Republicans
+ggplot(df_or_combined_rep, aes(x = rep_primary_share, y = rep_general_share)) +
+  geom_point(
+    aes(shape = "precinct data", color = total_primary_votes),
+    fill   = NA,     # hollow circles
+    stroke = 0.7,    # outline thickness
+    size   = 1.5,
+    alpha  = 0.8
+  ) +
+  # Draw the null model line without legend entry
+  geom_abline(
+    slope = 1, intercept = 0,
+    color = "red",
+    size  = 1,
+    show.legend = FALSE
+  ) +
+  # Dummy layer for legend entry for "null model"
+  geom_line(
+    data = tibble(x = c(0, 1), y = c(0, 1)),
+    aes(x = x, y = y, linetype = "null model"),
+    color = "red",
+    size  = 1,
+    show.legend = TRUE
+  ) +
+  annotate("text", x = 0.20, y = 0.85, label = "Overperform",
+           color = "gray20", size = 4) +
+  annotate("text", x = 0.80, y = 0.15, label = "Underperform",
+           color = "gray20", size = 4) +
+  scale_color_gradientn(
+    name = "Primary Turnout (votes)",
+    colors = c("gold", "green","darkgreen", "red","red"),  # Improved smooth color gradient
+    values = scales::rescale(scales)  # Map colors to quartiles
+  ) +
+  
+  scale_shape_manual(
+    name   = "",
+    values = c("precinct data" = 21)
+  ) +
+  scale_linetype_manual(
+    name   = "",
+    values = c("null model" = 1)
+  ) +
+  labs(
+    title = "Republican Vote Share: Primary vs. General (NC 2016)",
+    x     = "Primary REP Vote Share",
+    y     = "General REP Vote Share"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title     = element_text(hjust = 0.5, face = "bold"),
+    legend.box     = "vertical",
+    legend.position = "right"
+  ) +
+  guides(
+    shape = guide_legend(
+      order = 1,
+      override.aes = list(
+        linetype = 0,    # no line crossing the circle in legend
+        color    = "black",
+        fill     = NA
+      )
+    ),
+    linetype = guide_legend(order = 2),
+    color = guide_colorbar(order = 3)
+  )
+
+```
+
+```{r}
+df_or_primary_rep_agg <- df_or_primary %>%
+  group_by(Precinct) %>%
+  summarise(
+    rep_primary_votes   = sum(Votes[Party == "DEM"], na.rm = TRUE),
+    total_primary_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(rep_primary_share = rep_primary_votes / total_primary_votes)
+  
+
+df_or_general_rep_agg <- df_or_general %>%
+  group_by(Precinct) %>%
+  summarise(
+    rep_general_votes   = sum(Votes[Party == "DEM"], na.rm = TRUE),
+    total_general_votes = sum(Votes, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(rep_general_share = rep_general_votes / total_general_votes)
+  
+# Merge Oregon primary and general data for Republicans
+df_or_combined_rep <- left_join(df_or_primary_rep_agg, df_or_general_rep_agg, by = "Precinct")
+  
+# Define scales for the color gradient
+scales <- c(0, 1000, 2000, 2001, max(df_or_combined_rep$total_primary_votes))
+
+# Create the scatter plot for Republicans
+ggplot(df_or_combined_rep, aes(x = rep_primary_share, y = rep_general_share)) +
+  geom_point(
+    aes(shape = "precinct data", color = total_primary_votes),
+    fill   = NA,     # hollow circles
+    stroke = 0.7,    # outline thickness
+    size   = 1.5,
+    alpha  = 0.8
+  ) +
+  # Draw the null model line without legend entry
+  geom_abline(
+    slope = 1, intercept = 0,
+    color = "red",
+    size  = 1,
+    show.legend = FALSE
+  ) +
+  # Dummy layer for legend entry for "null model"
+  geom_line(
+    data = tibble(x = c(0, 1), y = c(0, 1)),
+    aes(x = x, y = y, linetype = "null model"),
+    color = "red",
+    size  = 1,
+    show.legend = TRUE
+  ) +
+  annotate("text", x = 0.20, y = 0.85, label = "Overperform",
+           color = "gray20", size = 4) +
+  annotate("text", x = 0.80, y = 0.15, label = "Underperform",
+           color = "gray20", size = 4) +
+  scale_color_gradientn(
+    name = "Primary Turnout (votes)",
+    colors = c("gold", "green","darkgreen", "red","red"),  # Improved smooth color gradient
+    values = scales::rescale(scales)  # Map colors to quartiles
+  ) +
+  
+  scale_shape_manual(
+    name   = "",
+    values = c("precinct data" = 21)
+  ) +
+  scale_linetype_manual(
+    name   = "",
+    values = c("null model" = 1)
+  ) +
+  labs(
+    title = "Democratic Vote Share: Primary vs. General (NC 2016)",
+    x     = "Primary DEM Vote Share",
+    y     = "General DEM Vote Share"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title     = element_text(hjust = 0.5, face = "bold"),
+    legend.box     = "vertical",
+    legend.position = "right"
+  ) +
+  guides(
+    shape = guide_legend(
+      order = 1,
+      override.aes = list(
+        linetype = 0,    # no line crossing the circle in legend
+        color    = "black",
+        fill     = NA
+      )
+    ),
+    linetype = guide_legend(order = 2),
+    color = guide_colorbar(order = 3)
+  )
+```
+
+
+```{r}
+#df_or_primary <- df_or_primary %>%
+#  rename(
+#    Votes = primary_votes)
+#df_or_general <- df_or_general %>%
+#  rename(
+#    Votes = general_votes)
+```
+
+```{r}
+library(tidyverse)
+
+
+# Read & Summarize NC Primary Votes
+df_or_primary <- df_or_primary %>%
+  group_by(Precinct, Party) %>%
+  summarise(primary_votes = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# Read & Summarize NC General Votes
+df_or_general <- df_or_general %>%
+  group_by(Precinct, Party) %>%
+  summarise(general_votes = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# Combine Primary & General by Precinct & Party
+df_or_combined <- left_join(df_or_primary, df_or_general, by = c("Precinct", "Party")) %>%
+  dplyr::filter(!is.na(primary_votes), !is.na(general_votes),
+                primary_votes > 0, general_votes > 0) %>%
+  dplyr::filter(Party %in% c("REP", "DEM"))
+
+# Compute regression models for each party
+dem_model <- lm(general_votes ~ primary_votes, data = df_or_combined %>% dplyr::filter(Party == "DEM"))
+rep_model <- lm(general_votes ~ primary_votes, data = df_or_combined %>% dplyr::filter(Party == "REP"))
+
+# Extract coefficients: [1] is the intercept, [2] is the slope.
+dem_coef <- coef(dem_model)
+rep_coef <- coef(rep_model)
+
+# Define an x-position to place the equation labels (e.g., 80% of maximum x)
+max_x <- max(df_or_combined$primary_votes, na.rm = TRUE)
+x_pos <- 0.8 * max_x
+
+ggplot(df_or_combined, aes(x = primary_votes, y = general_votes)) +
+  # (a) Scatter points colored by Party
+  geom_point(aes(color = Party),
+             shape = 21, fill = NA, size = 2, stroke = 0.5) +
+  # (b) Regression line for DEM (blue) using computed coefficients
+  geom_abline(slope = dem_coef[2], intercept = dem_coef[1],
+              color = "blue", size = 1) +
+  # (c) Regression line for REP (red) using computed coefficients
+  geom_abline(slope = rep_coef[2], intercept = rep_coef[1],
+              color = "red", size = 1) +
+  # (d) Annotate DEM equation at x_pos
+  annotate("text",
+           x = x_pos,
+           y = dem_coef[2] * x_pos + dem_coef[1],
+           label = paste0("y = ", round(dem_coef[2], 2), "x + ", round(dem_coef[1], 2)),
+           color = "blue", size = 3.5, fontface = "bold",
+           hjust = 1, vjust = -0.5) +
+  # (e) Annotate REP equation at x_pos
+  annotate("text",
+           x = x_pos,
+           y = rep_coef[2] * x_pos + rep_coef[1],
+           label = paste0("y = ", round(rep_coef[2], 2), "x + ", round(rep_coef[1], 2)),
+           color = "red", size = 3.5, fontface = "bold",
+           hjust = 1, vjust = -0.5) +
+  scale_color_manual(values = c("DEM" = "blue", "REP" = "red")) +
+  labs(
+    title = "How well does turnout for a party in the primaries\npredict turnout in the general election? (NC 2016)",
+    x = "primary party vote total",
+    y = "general party vote total",
+    color = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.ticks = element_line(color = "black")
+  )
+
+```
+
+```{r}
+# Calculate the weighted average difference
+weighted_avg_diff <- df_or_combined_rep %>% 
+  mutate(
+    # Calculate difference from y=x line (general_share - primary_share)
+    diff_from_expected = rep_general_share - rep_primary_share
+  ) %>%
+  summarize(
+    # Sum of (weight * difference) divided by sum of weights
+    weighted_avg = sum(total_general_votes * diff_from_expected, na.rm = TRUE) / sum(total_general_votes, na.rm = TRUE)
+  ) %>%
+  pull(weighted_avg)
+
+# Print the result
+print(paste("Weighted average difference:", weighted_avg_diff))
+```
+
+
+
