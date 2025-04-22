@@ -1,5 +1,5 @@
 ---
-title: "Data Exploration with 2016 Arkansas Primary and General Data"
+title: "Data Exploration with 2016 Tennessee Primary and General Data"
 authors: "Jenny Nguyen"
 toc: true
 toc-depth: 3
@@ -22,14 +22,14 @@ library(ggpmisc)
 
 
 # Read CSV file
-prim <- read.csv("20160301__ar__primary__precinct.csv")
-prim <- prim %>% filter(candidate != 'Write-In' & candidate != 'Registered Voters' & candidate != 'Yes') %>% filter (office == 'U.S. President - DEM' | office == 'U.S. President - REP')
-gen <- read.csv("20161108__ar__general__precinct.csv")
-gen <- gen %>% filter(candidate != 'Write-In' & candidate != 'Registered Voters' & candidate != 'Yes' & office == 'U.S. President & Vice President')
+prim <- read.csv("20160301__tn__primary__president__precinct.csv")
+prim <- prim %>% filter(candidate != 'Write-In' & candidate != 'Registered Voters' & candidate != 'Yes') 
+gen <- read.csv("20161108__tn__general__precinct.csv")
+gen <- gen %>% filter(candidate != 'Write-In' & candidate != 'Registered Voters' & candidate != 'Yes' & office == 'President')
 ```
 
 ```{r}
-# Count number of distinct precincts of AR
+# Count number of distinct precincts of TN
 distinct_precinct_gen <- gen %>% distinct(precinct) %>% count()
 
 # Print the result
@@ -68,7 +68,7 @@ total_per_precinct_prim <- prim %>%
 # Plot histogram of voter turnout per precinct
 ggplot(total_per_precinct_prim, aes(x = total_votes)) +
   geom_histogram(binwidth = 80, fill = "pink", color = "navy") +
-  labs(title = "Total Vote Distribution by Precinct AR Primary",
+  labs(title = "Total Vote Distribution by Precinct TN Primary",
        x = "Total Votes per Precinct",
        y = "Number of Precincts") +
   theme_minimal()
@@ -83,7 +83,7 @@ total_per_precinct_gen <- gen %>%
 # Plot histogram of voter turnout per precinct
 ggplot(total_per_precinct_gen, aes(x = total_votes)) +
   geom_histogram(binwidth = 80, fill = "pink", color = "navy") +
-  labs(title = "Total Vote Distribution by Precinct Maryland General",
+  labs(title = "Total Vote Distribution by Precinct TN General",
        x = "Total Votes per Precinct",
        y = "Number of Precincts") +
   theme_minimal()
@@ -110,13 +110,13 @@ head(state_party_lean, 2)  # Show top 2 parties
 ```{r}
 # Summarize primary election data (only REP and DEM)
 primary_votes <- prim %>%
-  filter(party %in% c("REP", "DEM")) %>%  # Keep only REP and DEM
+  filter(party %in% c("Republican", "Democratic")) %>%  # Keep only REP and DEM
   group_by(precinct, party) %>%
   summarise(primary_votes = sum(votes, na.rm = TRUE), .groups = "drop")
 
 # Summarize general election data (only REP and DEM)
 general_votes <- gen %>%
-  filter(party %in% c("REP", "DEM")) %>%  # Keep only REP and DEM
+  filter(party %in% c("Republican", "Democratic")) %>%  # Keep only REP and DEM
   group_by(precinct, party) %>%
   summarise(general_votes = sum(votes, na.rm = TRUE), .groups = "drop")
 
@@ -150,7 +150,7 @@ election_data <- election_data %>%
 scales <- c(0, 1000, 2000, 2001, max(election_data$total_prim))
 
 # Plotting the data
-ggplot(election_data %>% filter(party == "REP"), 
+ggplot(election_data %>% filter(party == "Republican"), 
        aes(x = primary_share, y = general_share, color = total_prim)) +  # Use total_prim for turnout
   geom_point(aes(shape = "precinct data"), fill = NA, alpha = 0.7, size = 1.5, stroke = 0.8) +  # Map shape to a constant
   geom_abline(aes(linetype = "null model"), slope = 1, intercept = 0, color = "blue", linewidth = 1.2) +  # Map linetype to a constant
@@ -179,7 +179,7 @@ ggplot(election_data %>% filter(party == "REP"),
 ```{r}
 # Calculate the weighted average difference
 weighted_avg_diff <- election_data %>% 
-  filter(party == "REP") %>%
+  filter(party == "Republican") %>%
   mutate(
     # Calculate difference from y=x line (general_share - primary_share)
     diff_from_expected = general_share - primary_share
@@ -195,7 +195,7 @@ print(paste("Weighted average difference:", weighted_avg_diff))
 
 # Check NA
 alr_drop_na <- election_data %>% 
-  filter(party == "REP") %>% 
+  filter(party == "Republican") %>% 
   select(total_prim, general_share, primary_share) %>%
   drop_na()  # This removes any rows with NA values in these columns
 ```
@@ -204,13 +204,13 @@ alr_drop_na <- election_data %>%
 # Recheck
 # Method 2: Using weighted.mean() function
 alt_calculation <- with(
-  election_data %>% filter(party == "REP"),
+  election_data %>% filter(party == "Republican"),
   weighted.mean(general_share - primary_share, total_prim, na.rm = TRUE)
 )
 
 # Method 3: Group by calculation steps
 step_by_step <- election_data %>% 
-  filter(party == "REP") %>%
+  filter(party == "Republican") %>%
   mutate(diff = general_share - primary_share,
          weighted_diff = diff * total_prim) %>%
   summarize(
@@ -226,14 +226,14 @@ print(step_by_step)
 ```
 
 ```{r}
-df_check <- election_data %>% filter(party == "REP") %>% filter(primary_share == 1 & general_share < 1)
+df_check <- election_data %>% filter(party == "Republican") %>% filter(primary_share == 1 & general_share < 1)
 df_check
 ```
 
 ```{r}
 # Calculate the weighted average difference using general election turnout
 weighted_avg_diff_gen <- election_data %>% 
-  filter(party == "DEM") %>%
+  filter(party == "Republican") %>%
   mutate(
     # Calculate difference from y=x line (general_share - primary_share)
     diff_from_expected = general_share - primary_share
@@ -250,13 +250,13 @@ print(paste("Weighted average difference (weighted by general turnout):", weight
 # Recheck with alternative methods
 # Method 2: Using weighted.mean() function
 alt_calculation_gen <- with(
-  election_data %>% filter(party == "REP"),
+  election_data %>% filter(party == "Republican"),
   weighted.mean(general_share - primary_share, total_gen, na.rm = TRUE)
 )
 
 # Method 3: Group by calculation steps
 step_by_step_gen <- election_data %>% 
-  filter(party == "REP") %>%
+  filter(party == "Republican") %>%
   mutate(diff = general_share - primary_share,
          weighted_diff = diff * total_gen) %>%
   summarize(
@@ -274,7 +274,7 @@ print(step_by_step_gen)
 ```{r}
 # Calculate the unweighted average difference
 unweighted_avg_diff <- election_data %>% 
-  filter(party == "REP") %>%
+  filter(party == "Republican") %>%
   mutate(
     # Calculate difference from y=x line (general_share - primary_share)
     diff_from_expected = general_share - primary_share
@@ -290,7 +290,7 @@ print(paste("Unweighted average difference:", unweighted_avg_diff))
 
 # Alternative calculation using mean() directly
 alt_unweighted <- with(
-  election_data %>% filter(party == "REP"),
+  election_data %>% filter(party == "Republican"),
   mean(general_share - primary_share, na.rm = TRUE)
 )
 
@@ -300,25 +300,25 @@ print(paste("Alternative unweighted calculation:", alt_unweighted))
 ```{r}
 # Compute total Republican primary votes per precinct
 primary_REP_votes <- prim %>%
-  filter(party == "REP") %>%
-  group_by(precinct) %>%
-  summarise(primary_REP_votes = sum(votes, na.rm = TRUE), .groups = "drop")
+  filter(Party == "Republican") %>%
+  group_by(Precinct) %>%
+  summarise(primary_REP_votes = sum(Votes, na.rm = TRUE), .groups = "drop")
 
 # Compute total Democratic primary votes per precinct
 primary_DEM_votes <- prim %>%
-  filter(party == "DEM") %>%
-  group_by(precinct) %>%
-  summarise(primary_DEM_votes = sum(votes, na.rm = TRUE), .groups = "drop")
+  filter(Party == "Democratic") %>%
+  group_by(Precinct) %>%
+  summarise(primary_DEM_votes = sum(Votes, na.rm = TRUE), .groups = "drop")
 
 election_data <- election_data %>%
-  left_join(primary_REP_votes, by = "precinct") %>%
-  left_join(primary_DEM_votes, by = "precinct")
+  left_join(primary_REP_votes, by = "Precinct") %>%
+  left_join(primary_DEM_votes, by = "Precinct")
 ```
 
 ```{r}
 # Calculate general_REP_votes and share_diff
 rep_data <- election_data %>%
-  filter(party == "REP") %>%
+  filter(Party == "Republican") %>%
   mutate(
     general_REP_votes = general_share * total_gen,  # Calculate general Republican votes
     share_diff = (general_REP_votes / total_gen) - (primary_REP_votes / total_prim)  # Calculate share difference
@@ -386,7 +386,7 @@ ggplot(election_data, aes(x = primary_votes, y = general_votes, color = Party)) 
   geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", se = FALSE) +  
   stat_poly_eq(aes(label = after_stat(eq.label)), formula = y ~ x, parse = TRUE) +  # Equation
-  scale_color_manual(values = c("DEM" = "blue", "REP" = "red")) +  
+  scale_color_manual(values = c("Democratic" = "blue", "REP" = "red")) +  
   labs(
     title = "How Well Does Turnout for a Party in the Primaries Predict Turnout in the General Election?",
     x = "Primary Party Vote Total",
