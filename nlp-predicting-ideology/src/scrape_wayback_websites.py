@@ -15,15 +15,6 @@ OUTPUT_DIR = os.path.join(BASE_DIR, 'data', 'wayback_content')
 # Create output directory if it doesn't exist
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Function to get Wayback Machine URL for a website for the end of October 2016
-def get_wayback_url(url):
-    # Target date: End of October 2016 (October 31, 2016)
-    target_date = "20161031"
-    
-    # Format the Wayback Machine URL
-    wayback_url = f"https://web.archive.org/web/{target_date}/{url}"
-    return wayback_url
-
 # Function to scrape content from a URL
 def scrape_website(url, candidate_name):
     try:
@@ -74,10 +65,7 @@ def main():
     
     for index, candidate in candidates_df.iterrows():
         name = candidate['Name']
-        website = candidate['Website']
-        
-        # Get Wayback Machine URL
-        wayback_url = get_wayback_url(website)
+        wayback_url = candidate['Website']
         
         # Scrape the website
         result = scrape_website(wayback_url, name)
