@@ -26,6 +26,10 @@ prim <- read.csv("MD-Primary-2016.txt")
 prim <- prim %>% filter(Name.Raw != 'Uncommitted To Any Presidential Candidate')
 gen <- read.csv("MD-General-2016.txt")
 gen <- gen %>% filter(Name.Raw != 'Other Write-Ins')
+
+prim <- prim %>% distinct()
+gen <- gen %>% distinct()
+
 ```
 
 ```{r}
@@ -46,7 +50,8 @@ print(distinct_precinct_prim)
 
 ```{r}
 # Print the distinct names
-unique(prim$Name.Raw)
+filter1 <- gen %>% filter(Party %in% c('DEM', 'REP'))
+unique(filter1$Name.Raw)
 ```
 
 ```{r}
@@ -175,7 +180,7 @@ scales <- c(0, 1000, 2000, 2001, max(election_data$total_prim))
 ggplot(election_data %>% filter(Party == "DEM"), 
        aes(x = primary_share, y = general_share, color = total_prim)) +  # Use total_prim for turnout
   geom_point(aes(shape = "precinct data"), fill = NA, alpha = 0.7, size = 1.5, stroke = 0.8) +  # Map shape to a constant
-  geom_abline(aes(linetype = "null model"), slope = 1, intercept = 0, color = "blue", linewidth = 1.2) +  # Map linetype to a constant
+  geom_abline(aes(linetype = "null model"), slope = 1, intercept = 0, color = "red", linewidth = 1.2) +  # Map linetype to a constant
   scale_color_gradientn(
     colors = c("gold", "green","darkgreen", "red","red"),  # Improved smooth color gradient
     values = scales::rescale(scales)  # Map colors to quartiles
