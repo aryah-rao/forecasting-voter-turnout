@@ -1,0 +1,61 @@
+---
+title: "Multi State"
+authors: "Jenny Nguyen"
+toc: true
+toc-depth: 3
+toc-title: Table of Contents
+date: April 15, 2025
+format: html
+editor: visual
+self-contained: true
+warning: false
+code-fold: false
+---
+
+```{r}
+# Create the dataset
+data1 <- data.frame(
+  States = c("Maryland","Arkansas", "Florida", "North Carolina", "Oregon", "Ohio", "Tennessee", "Rhode Island"),
+  Party = factor(c("Democratic","Republican", "Republican", "Republican", "Democratic", "Republican", "Republican", "Democratic"), 
+                 levels = c("Democratic", "Republican")),
+  Overperformance_REP = c(1.230,-4.616, -6.132, 0.678, 0.545, -6.062, -7.439, 4.082),
+  Vote_share_REP = c(45.04, 58.07, 50.6, 51.8, 43.5, 54.27, 60.72, 38.90)
+)
+
+# Create the plot
+ggplot(data1, aes(
+  x = Vote_share_REP,
+  y = Overperformance_REP,
+  label = paste(States, "\n(", Vote_share_REP, ",", Overperformance_REP, ")"),
+  color = Party
+)) +
+  geom_point(size = 4) +  # Create points
+  geom_text(vjust = -1, hjust = 0.5, size = 3.3) +  # Add labels with line break
+  labs(
+    x = "% Vote share of REP in General Election",
+    y = "% Overperformance of REP weighted by General Turnout",
+    title = "Overperformance vs. Vote Share of REP in General Elections",
+    color = "Party Winning General Election"
+  ) +
+  scale_color_manual(
+    values = c("Democratic" = "blue", "Republican" = "red"),
+    labels = c("Democratic", "Republican")
+  ) +
+  theme_minimal() +
+  xlim(37, 63) +
+  ylim(-9, 6) +
+  guides(color = guide_legend(override.aes = list(label = ""))) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 14),
+    axis.text.x = element_text(size = 15),
+    axis.text.y = element_text(size = 17),
+    axis.title = element_text(size = 18),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 15),
+    legend.title = element_text(size = 16)
+  )
+ggsave("plot_output.eps", width = 8, height = 6, device = "eps")
+
+```
