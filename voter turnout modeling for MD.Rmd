@@ -1,0 +1,550 @@
+---
+title: "voter turnout modeling for MD"
+output: html_document
+---
+
+```{r}
+# Load required libraries
+library(tidyverse)
+library(readr)
+library(ggplot2)
+
+### 1. Data Import and Basic Filtering
+md_prim <- read.csv("MD-Primary-2016.txt")
+df_prim <- md_prim %>% filter(Name.Raw != 'Uncommitted To Any Presidential Candidate')
+md_gen <- read.csv("MD-General-2016.txt")
+df_gen <- md_gen %>% filter(Name.Raw != 'Other Write-Ins')
+
+
+df_gen <- df_gen %>%
+  rename(
+    election_type = "Election.Type",
+    candidate_raw = "Name.Raw",
+    office        = "Office",
+    party         = "Party",
+    state_name    = "State.Name",
+    county        = "County",
+    county_fips   = "County.FIPS",
+    precinct_id   = "Precinct",
+    jurisdiction  = "Jurisdiction",
+    votes         = "Votes"
+  )
+
+df_prim <- df_prim %>%
+  rename(
+    election_type = "Election.Type",
+    candidate_raw = "Name.Raw",
+    office        = "Office",
+    party         = "Party",
+    state_name    = "State.Name",
+    county        = "County",
+    county_fips   = "County.FIPS",
+    precinct_id   = "Precinct",
+    jurisdiction  = "Jurisdiction",
+    votes         = "Votes"
+  )
+
+# Filter for the Presidential race 
+df_prim <- df_prim %>%
+  filter(office == "President - Vice Pres")  
+df_gen <- df_gen %>%
+  filter(office == "President - Vice Pres")  
+
+relevant_parties <- c("DEM", "REP", "democratic", "republican")  # Adjust as needed
+df_prim <- df_prim %>% filter(party %in% relevant_parties)
+df_gen  <- df_gen  %>% filter(party %in% relevant_parties)
+```
+
+```{r}
+### 2. Aggregate Votes by Precinct and Party
+# Primary: Sum up total votes for each (precinct_id, party)
+prim_agg <- df_prim %>%
+  group_by(precinct_id, party) %>%
+  summarise(primary_votes = sum(votes, na.rm = TRUE), .groups = "drop")
+
+# General: Sum up total votes for each (precinct_id, party)
+gen_agg <- df_gen %>%
+  group_by(precinct_id, party) %>%
+  summarise(general_votes = sum(votes, na.rm = TRUE), .groups = "drop")
+
+# Merge primary & general data by precinct_id and party
+merged_data <- left_join(prim_agg, gen_agg, by = c("precinct_id", "party"))
+
+# Calculate total precinct turnout (primary & general)
+turnout_prim <- df_prim %>%
+  group_by(precinct_id) %>%
+  summarise(total_prim = sum(votes, na.rm = TRUE), .groups = "drop")
+
+turnout_gen <- df_gen %>%
+  group_by(precinct_id) %>%
+  summarise(total_gen = sum(votes, na.rm = TRUE), .groups = "drop")
+
+# Add total turnout columns
+merged_data <- merged_data %>%
+  left_join(turnout_prim, by = "precinct_id") %>%
+  left_join(turnout_gen, by = "precinct_id")
+```
+
+```{r}
+### 3. Compute Vote Shares & Margins
+# Primary & general vote shares for each party
+merged_data <- merged_data %>%
+  mutate(
+    primary_share = if_else(total_prim > 0, primary_votes / total_prim, NA_real_),
+    general_share = if_else(total_gen > 0, general_votes / total_gen, NA_real_)
+  )
+
+# OPTIONAL: If you want precinct-level margin, you need a wide format or a separate calculation
+# For example, to get margin between DEM & REP at precinct level:
+# 1) pivot_wider or 2) group data by precinct & compare DEM vs. REP.
+
+```
+
+```{r}
+### 4. Model Estimation
+
+#### 4.1 Turnout Model
+# Predict general turnout from primary turnout
+
+turnout_data <- turnout_prim %>%
+  left_join(turnout_gen, by = "precinct_id")
+
+# Initial OLS model: general turnout ~ primary turnout
+model_turnout <- lm(total_gen ~ total_prim, data = turnout_data)
+summary(model_turnout)
+
+# Diagnostic plots for the initial model
+par(mfrow = c(2,2))
+plot(model_turnout)
+par(mfrow = c(1,1))
+
+#### 4.2 Addressing Heteroscedasticity and Nonlinearity
+# Apply a log-transformation to the response variable (general turnout)
+turnout_data <- turnout_data %>%
+  mutate(
+    log_total_gen = log(total_gen+1),
+    log_total_prim = log(total_prim+1)
+  )
+
+model_turnout_log <- lm(log_total_gen ~ log_total_prim, data = turnout_data)
+summary(model_turnout_log)
+
+# Diagnostic plots for the log-transformed model
+par(mfrow = c(2,2))
+plot(model_turnout_log)
+par(mfrow = c(1,1))
+```
+
+```{r}
+#### 4.2 Vote Share Model
+# For example, model REP general share from REP primary share
+# Filter merged_data for party == "REP" (or whichever label your dataset uses)
+rep_data <- merged_data %>% filter(str_detect(party, "REP|republican"))  # adjust as needed
+
+model_rep_share <- lm(general_share ~ primary_share, data = rep_data)
+summary(model_rep_share)
+```
+
+```{r}
+#### 4.3 Margin Model
+# If you pivot precinct data wide for DEM vs REP, you can create a margin (DEM share - REP share)
+# Example pivot:
+wide_margin <- merged_data %>%
+  select(precinct_id, party, primary_share, general_share) %>%
+  pivot_wider(names_from = party, values_from = c(primary_share, general_share),
+              names_sep = "_") %>%
+  mutate(
+    primary_margin = primary_share_DEM - primary_share_REP,
+    general_margin = general_share_DEM - general_share_REP
+  )
+
+model_margin <- lm(general_margin ~ primary_margin, data = wide_margin)
+summary(model_margin)
+```
+
+```{r}
+#### 4.4 Candidate Performance Model
+# e.g., REP performance = REP general share - REP primary share
+wide_margin <- wide_margin %>%
+  mutate(
+    performance_rep = general_share_REP - primary_share_REP,
+    performance_dem = general_share_DEM - primary_share_DEM
+  )
+
+model_perf_rep <- lm(performance_rep ~ primary_margin, data = wide_margin)
+summary(model_perf_rep)
+
+```
+
+```{r}
+### 5. Diagnostics & Validation
+# Evaluate model residuals
+par(mfrow=c(2,2))
+plot(model_turnout)  # Basic diagnostic plots
+turnout_data <- turnout_data %>%
+  mutate(
+    pred_log_gen = predict(model_turnout_log, newdata = turnout_data),
+    pred_total_gen = exp(pred_log_gen)-1
+  )
+
+ggplot(turnout_data, aes(x = total_gen, y = pred_total_gen)) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  scale_x_log10() + scale_y_log10()+
+  labs(
+    title = "Maryland: Actual vs. Predicted General Turnout (Log-Log Scale)",
+    x = "Actual General Turnout (+1) [log scale]",
+    y = "Predicted General Turnout (+1) [log scale]"
+  )+
+  theme(
+    plot.title = element_text(size = 14, face = "bold",hjust = -1),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 14)
+  )
+```
+
+```{r}
+# Load required libraries
+library(tidyverse)
+library(ggplot2)
+library(broom)
+
+turnout_data <- turnout_data %>%
+  mutate(
+    log_total_prim = log(total_prim + 1),
+    log_total_gen = log(total_gen + 1)
+  )
+
+# Fit the log-transformed turnout model
+model_turnout_log <- lm(log_total_gen ~ log_total_prim, data = turnout_data)
+summary(model_turnout_log)
+
+## Scatter Plot with Regression Line
+ggplot(turnout_data, aes(x = log_total_prim, y = log_total_gen)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = "MLog-Transformed Turnout Model",
+       x = "Log(Total Primary Turnout + 1)",
+       y = "Log(Total General Turnout + 1)") +
+  theme_minimal()
+
+## Residuals vs. Fitted Plot
+# Augment the model for diagnostics
+model_diag <- augment(model_turnout_log)
+
+ggplot(model_diag, aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs. Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+
+## Normal Q–Q Plot
+ggplot(model_diag, aes(sample = .std.resid)) +
+  stat_qq(alpha = 0.6, color = "blue") +
+  stat_qq_line(color = "red", linetype = "dashed") +
+  labs(title = "Normal Q–Q Plot for Log Model Residuals") +
+  theme_minimal()
+
+## Scale–Location Plot
+ggplot(model_diag, aes(x = .fitted, y = sqrt(abs(.std.resid)))) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_smooth(method = "loess", color = "red", se = FALSE) +
+  labs(title = "Scale–Location Plot",
+       x = "Fitted Values",
+       y = "Sqrt(|Standardized Residuals|)") +
+  theme_minimal()
+
+## Base R Diagnostic Plots (for comparison)
+par(mfrow = c(2,2))
+plot(model_turnout_log)
+par(mfrow = c(1,1))
+
+
+
+```
+
+```{r}
+
+# Read OR primary and general datasets 
+or_prim <- read.csv("OR-Primary-2016.txt")  
+or_gen  <- read.csv("OR-General-2016.txt")   
+
+# Inspect column names 
+colnames(or_prim)
+colnames(or_gen)
+
+# Filter out aggregate rows if present
+or_prim <- or_prim %>% filter(Precinct != "Total")
+or_gen  <- or_gen %>% filter(Precinct != "Total")
+
+or_prim <- or_prim %>%
+  mutate(Party = str_to_lower(Party),
+         Party = case_when(
+           Party %in% c("rep", "r", "republican") ~ "REP",
+           Party %in% c("dem", "d", "democrat") ~ "DEM",
+           Party %in% c("ind", "independent") ~ "Independent",
+           TRUE ~ Party  
+         ))
+or_gen <- or_gen %>%
+  mutate(Party = str_to_lower(Party),
+         Party = case_when(
+           Party %in% c("rep", "r", "republican") ~ "REP",
+           Party %in% c("dem", "d", "democrat") ~ "DEM",
+           Party %in% c("ind", "independent") ~ "Independent",
+           TRUE ~ Party  
+         ))
+unique(or_gen$Party)
+
+# Filter for relevant parties; adjust labels as needed
+or_prim <- or_prim %>% filter(Party %in% c("DEM", "REP"))
+or_gen  <- or_gen  %>% filter(Party %in% c("DEM", "REP"))
+
+### Aggregate and Compute Turnout
+
+# Aggregate total votes per precinct for primary and general elections
+or_total_prim <- or_prim %>%
+  group_by(Precinct) %>%
+  summarise(total_prim = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+or_total_gen <- or_gen %>%
+  group_by(Precinct) %>%
+  summarise(total_gen = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# Create a combined turnout dataset by precinct
+or_turnout <- left_join(or_total_prim, or_total_gen, by = "Precinct")
+
+# Inspect summary statistics to check for zeros
+summary(or_turnout$total_prim)
+summary(or_turnout$total_gen)
+
+# Since we plan to apply a log transformation, add a small constant to avoid log(0)
+or_turnout <- or_turnout %>%
+  mutate(
+    log_total_prim = log(total_prim + 1),
+    log_total_gen  = log(total_gen + 1)
+  )
+
+```
+
+```{r}
+library(Metrics)
+#install.packages("Metrics")
+# Predict log general turnout for OR data
+or_turnout$pred_log <- predict(model_turnout_log, newdata = or_turnout)
+
+# Convert predictions back to level scale
+or_turnout$pred_total_gen <- exp(or_turnout$pred_log) - 1
+
+# Compute error metrics
+or_rmse <- rmse(or_turnout$total_gen, or_turnout$pred_total_gen)
+or_mae <- mae(or_turnout$total_gen, or_turnout$pred_total_gen)
+cat("OR Turnout Model (Log) RMSE:", or_rmse, "\n")
+cat("OR Turnout Model (Log) MAE:", or_mae, "\n")
+
+# Visualize actual vs. predicted turnout
+ggplot(or_turnout, aes(x = total_gen, y = pred_total_gen)) +
+  geom_point(color = "darkgreen", alpha = 0.6) +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  scale_y_log10() + scale_x_log10() +
+  labs(
+    title = "Oregon: Actual vs. Predicted General Turnout (Log-Log Scale)",
+    x = "Actual General Turnout (+1) [log scale]",
+    y = "Predicted General Turnout (+1) [log scale]"
+  ) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 14)
+  )
+
+```
+
+```{r}
+# Aggregate total primary votes per precinct
+turnout_prim <- or_prim %>%
+  group_by(Precinct) %>%
+  summarise(total_prim = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# Aggregate total general votes per precinct
+turnout_gen <- or_gen %>%
+  group_by(Precinct) %>%
+  summarise(total_gen = sum(Votes, na.rm = TRUE), .groups = "drop")
+
+# Merge turnout data by precinct
+or_turnout <- left_join(turnout_prim, turnout_gen, by = "Precinct")
+
+# Check summary statistics to ensure no issues with zeros or missing data
+summary(or_turnout$total_prim)
+summary(or_turnout$total_gen)
+
+#############################
+## Fit Log-Linear Turnout Model
+#############################
+
+# To handle zeros, add a small constant before taking logs.
+or_turnout <- or_turnout %>%
+  mutate(
+    log_total_prim = log(total_prim + 1),
+    log_total_gen  = log(total_gen + 1)
+  )
+
+# Fit the log-linear model:
+# log(T_gen + 1) = alpha0 + alpha1*log(T_prim + 1) + error
+model_turnout_log <- lm(log_total_gen ~ log_total_prim, data = or_turnout)
+summary(model_turnout_log)
+```
+
+```{r}
+# Generate predictions on the log scale
+or_turnout <- or_turnout %>%
+  mutate(
+    pred_log_gen = predict(model_turnout_log, newdata = or_turnout),
+    pred_total_gen = exp(pred_log_gen) - 1  # Convert back to level scale
+  )
+
+#############################
+## 4. Visualization: Actual vs. Predicted General Turnout
+#############################
+
+ggplot(or_turnout, aes(x = total_gen, y = pred_total_gen)) +
+  geom_point(color = "blue", alpha = 0.7) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Oregon: Actual vs. Predicted General Turnout (Log-Linear Model)",
+       x = "Actual General Turnout",
+       y = "Predicted General Turnout") +
+  theme_minimal()
+
+# Optionally, view diagnostic plots for the log-linear model
+par(mfrow = c(2,2))
+plot(model_turnout_log)
+par(mfrow = c(1,1))
+```
+
+## Model Fitting: Log-Linear Turnout Model
+
+To predict general election turnout $T^{gen}_p$ from primary election turnout $T^{prim}_p$, we use a log‐linear regression:
+
+$\log\bigl(T^{gen}_p + 1\bigr) \;=\;\alpha_0 \;+\;\alpha_1\,\log\bigl(T^{prim}_p + 1\bigr)\;+\;\epsilon_p$
+
+**Rationale:**
+
+-   Turnout is often skewed across precincts, so the log transform (adding 1 to handle zeros) helps stabilize variance.
+
+-   The coefficient α1\alpha\_1 indicates how strongly primary turnout predicts general turnout.
+
+**Implementation:**
+
+-   Aggregate votes per precinct for both primary and general elections.
+
+-   Log‐transform: log⁡(T+1)\log(T + 1) to mitigate issues with zeros and heteroscedasticity.
+
+-   Fit the model via Ordinary Least Squares.
+
+-   Validate using residual diagnostics and measure error (e.g., RMSE).
+
+**Interpretation:**
+
+-   A higher α1\alpha\_1 implies precincts with higher primary turnout tend to have proportionally higher general turnout.
+
+-   Goodness‐of‐fit can be checked by comparing actual vs. predicted turnout on a scatter plot.
+
+This log‐linear approach captures multiplicative relationships between primary and general turnout and helps account for wide variation in precinct sizes.
+
+```{r}
+# Load required libraries
+library(tidyverse)
+library(cluster)     # For silhouette analysis
+library(factoextra)  # For cluster visualization
+
+### Aggregate Votes by Precinct and Party
+# Primary: Sum total votes per precinct & party
+prim_agg <- df_prim %>%
+  group_by(precinct_id, party) %>%
+  summarise(primary_votes = sum(votes, na.rm = TRUE), .groups = "drop")
+
+# General: Sum total votes per precinct & party
+gen_agg <- df_gen %>%
+  group_by(precinct_id, party) %>%
+  summarise(general_votes = sum(votes, na.rm = TRUE), .groups = "drop")
+
+# Merge primary and general aggregated data
+merged_data <- left_join(prim_agg, gen_agg, by = c("precinct_id", "party"))
+
+# Total turnout per precinct in primary and general
+turnout_prim <- df_prim %>%
+  group_by(precinct_id) %>%
+  summarise(total_prim = sum(votes, na.rm = TRUE), .groups = "drop")
+turnout_gen <- df_gen %>%
+  group_by(precinct_id) %>%
+  summarise(total_gen = sum(votes, na.rm = TRUE), .groups = "drop")
+
+# Merge turnout totals into merged_data
+merged_data <- merged_data %>%
+  left_join(turnout_prim, by = "precinct_id") %>%
+  left_join(turnout_gen, by = "precinct_id")
+
+# Calculate vote shares for each party in each precinct
+merged_data <- merged_data %>%
+  mutate(
+    primary_share = if_else(total_prim > 0, primary_votes / total_prim, NA_real_),
+    general_share = if_else(total_gen > 0, general_votes / total_gen, NA_real_)
+  )
+
+### Create Wide Format for Clustering Analysis
+# Focus on Democratic data 
+# Pivot wider so that each precinct has columns for Democratic primary and general vote shares
+wide_data <- merged_data %>%
+  filter(party == "DEM") %>%
+  select(precinct_id, primary_share, general_share)
+
+# Remove rows with missing values
+wide_data <- wide_data %>% drop_na()
+
+### Clustering Analysis: K-Means on Democratic Vote Shares
+# Scale the features
+cluster_data <- wide_data %>%
+  mutate(across(c(primary_share, general_share), scale))
+
+# Determine optimal number of clusters with the Elbow method
+set.seed(123)
+fviz_nbclust(cluster_data %>% select(-precinct_id), kmeans, method = "wss") +
+  labs(subtitle = "Elbow Method")
+
+# Determine optimal number of clusters with the Silhouette method
+fviz_nbclust(cluster_data %>% select(-precinct_id), kmeans, method = "silhouette") +
+  labs(subtitle = "Silhouette Method")
+
+# For illustration, we choose k = 3 clusters (adjust based on your data)
+set.seed(123)
+km_result <- kmeans(cluster_data %>% select(-precinct_id), centers = 2, nstart = 25)
+
+# Add cluster assignments to the wide_data
+wide_data$cluster <- factor(km_result$cluster)
+
+### Visualize Clusters
+# Scatter plot of primary vs. general vote shares colored by cluster
+ggplot(wide_data, aes(x = primary_share, y = general_share, color = cluster)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_point(data = as.data.frame(km_result$centers) %>% 
+               mutate(cluster = factor(1:2)),
+             aes(x = primary_share, y = general_share),
+             size = 5, shape = 8, color = "black") +
+  labs(title = "Clustering of Maryland Precincts (Democratic Vote Shares)",
+       x = "Primary Democratic Vote Share",
+       y = "General Democratic Vote Share",
+       color = "Cluster") +
+  theme_minimal()
+
+print(km_result$centers)
+
+cluster_summary <- wide_data %>%
+  group_by(cluster) %>%
+  summarise(
+    avg_primary = mean(primary_share, na.rm = TRUE),
+    avg_general = mean(general_share, na.rm = TRUE),
+    n = n()
+  )
+print(cluster_summary)
+```
