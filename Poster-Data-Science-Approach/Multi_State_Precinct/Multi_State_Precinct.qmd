@@ -1,0 +1,165 @@
+---
+title: "Multi States Precinct"
+authors: "Jenny Nguyen"
+toc: true
+toc-depth: 3
+toc-title: Table of Contents
+date: Apr 29, 2025
+format: html
+editor: visual
+self-contained: true
+warning: false
+code-fold: true
+---
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+
+# Load all datasets
+md <- read_csv("election_data_MD.csv")
+ri <- read_csv("election_data_RI.csv")
+nc <- read_csv("election_data_NC.csv")
+fl <- read_csv("election_data_FL.csv")
+ar <- read_csv("election_data_AR.csv")
+oh <- read_csv("election_data_OH.csv")
+or <- read_csv("election_data_OR.csv")
+tn <- read_csv("election_data_TN.csv")
+```
+
+```{r}
+# MD, RI, OR, TN are in long format — filter for Republicans and compute overperformance
+process_long <- function(df, state) {
+  df %>%
+    filter(party == "Republican") %>%
+    mutate(
+      overperformance = general_share - primary_share,
+      state = state
+    ) %>%
+    select(precinct, general_share, overperformance, state)
+}
+
+md_clean <- process_long(md, "Maryland")
+ri_clean <- process_long(ri, "Rhode Island")
+or_clean <- or %>%
+  rename(
+    precinct = Precinct,
+    party = Party
+  ) %>%
+  group_by(precinct) %>%
+  mutate(
+    total_prim = sum(primary_votes),
+    total_gen = sum(general_votes)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    primary_share = primary_votes / total_prim,
+    general_share = general_votes / total_gen
+  ) %>%
+  filter(party == "Republican") %>%
+  mutate(
+    overperformance = general_share - primary_share,
+    state = "Oregon"
+  ) %>%
+  select(precinct, general_share, overperformance, state)
+
+
+tn_clean <- process_long(tn, "Tennessee")
+
+# FL, NC, OH, AR are wide-format
+fl_clean <- fl %>%
+  transmute(
+    precinct = Precinct,
+    general_share = rep_general_share,
+    overperformance = rep_overperf,
+    state = "Florida"
+  )
+
+nc_clean <- nc %>%
+  transmute(
+    precinct = Precinct,
+    general_share = rep_general_share,
+    overperformance = rep_overperf,
+    state = "North Carolina"
+  )
+
+oh_clean <- oh %>%
+  transmute(
+    precinct = precinct,
+    general_share = rep_general_share,
+    overperformance = rep_general_share - rep_primary_share,
+    state = "Ohio"
+  )
+
+ar_clean <- ar %>%
+  filter(party == "REP") %>%
+  mutate(
+    overperformance = general_share - primary_share,
+    state = "Arkansas"
+  ) %>%
+  select(precinct, general_share, overperformance, state)
+
+# Combine all
+all_data <- bind_rows(
+  md_clean, ri_clean, nc_clean, fl_clean,
+  ar_clean, oh_clean, or_clean, tn_clean
+)
+
+# Remove Rhode Island and order to bring FL and AR on top
+plot_data <- all_data %>%
+  mutate(state = factor(state)) %>%
+  arrange(match(state, c(
+    setdiff(unique(state), c("Florida", "Arkansas")),
+    "Florida", "Arkansas"
+  )))
+```
+
+```{r}
+print(unique(all_data$state))
+```
+
+```{r}
+# Define custom shapes and colors
+state_shapes <- c(
+  "Ohio" = 21, "Tennessee" = 22, "Maryland" = 23,
+  "North Carolina" = 24, "Florida" = 25, "Arkansas" = 21,
+  "Oregon" = 22
+)
+
+state_colors <- c(
+  "Ohio" = "#1b9e77",
+  "Tennessee" = "#d95f02",
+  "Maryland" = "#7570b3",
+  "North Carolina" = "#a50f15",  # dark red
+  "Florida" = "#1f78b4",
+  "Arkansas" = "#e6550d",
+  "Oregon" = "#66a61e"
+)
+
+# Create the plot
+ggplot(plot_data, aes(x = general_share, y = overperformance)) +
+  geom_point(
+    aes(shape = state, color = state),
+    size = 2.5,
+    stroke = 0.8,
+    fill = NA
+  ) +
+  scale_shape_manual(values = state_shapes) +
+  scale_color_manual(values = state_colors) +
+  labs(
+    title = "% Overperformance vs. % Vote Share of REP in General Elections (by Precinct)",
+    x = "% Vote Share of REP in General Election",
+    y = "% Overperformance of REP (General - Primary)",
+    color = "State",
+    shape = "State"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 11)
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray")
+
+```
