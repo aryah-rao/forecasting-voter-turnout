@@ -155,10 +155,6 @@ print(f"Predicted ideology score: {prediction:.2f}")  # Scale: -1 (liberal) to 1
 ## **Pipeline Workflow**
 The pipeline follows these steps:
 
-<p align="center">
-  <img src="https://via.placeholder.com/700x300?text=Pipeline+Workflow+Diagram" alt="Pipeline Workflow" width="600"/>
-</p>
-
 1. **Scrape Politicians' Websites** (`politician_scraper/`)
 ```bash
 cd politician_scraper
@@ -190,8 +186,6 @@ The dataset combines:
 - **Website Text Data**: Scraped from official websites of members of the U.S. Congress
 - **DW-NOMINATE Scores**: Standard political science measure of ideology
   - Range from -1 (most liberal) to 1 (most conservative)
-  - First dimension captures economic ideology
-  - Second dimension captures social/cultural issues
 
 **Data Statistics:**
 - 435 House representatives + 100 Senators
@@ -222,9 +216,6 @@ The dataset combines:
 | Ridge Regression | 0.130 | 0.361 | 0.288 | 0.381 |
 | BERT | 0.120 | 0.346 | 0.241 | 0.432 |
 
-<p align="center">
-  <img src="https://via.placeholder.com/600x400?text=Model+Comparison+Chart" alt="Model Comparison" width="500"/>
-</p>
 
 ### Key Findings
 
@@ -232,17 +223,6 @@ The dataset combines:
 - Ridge Regression offers decent performance (R² = 0.381) with much faster training
 - Most common misclassifications occur for moderate politicians
 - The relatively modest R² scores indicate the challenging nature of predicting political ideology from text alone
-
----
-
-## **Key Files & Their Purpose**
-| **File** | **Description** |
-|----------|---------------|
-| `preprocess.py` | Cleans and filters the dataset before training |
-| `embedding_utils.py` | Converts text into TF-IDF or BERT embeddings |
-| `train_ridge.py` | Trains Ridge Regression with TF-IDF |
-| `train_bert.py` | Fine-tunes BERT on our dataset |
-| `evaluate.py` | Compares all trained models and prints evaluation metrics |
 
 ---
 
